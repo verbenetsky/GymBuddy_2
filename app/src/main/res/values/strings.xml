@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">GymBuddy</string>
+    <string name="sign_in_with_google">Sign in via Google</string>">
+    <string name="default_web_client_id">359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com</string>
+    <string name="welcome_back">Welcome Back</string>
+    <string name="dont_have_an_account">Don’t have an account? Sign up.</string>
+    <string name="create_an_account">Create an account</string>
+    <string name="already_have_an_account">Already have an account? Login</string>
+    <string name="continue_text">Continue</string>
+    <string name="enter_your_password">Enter your password</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="wrong_email_or_password">Wrong email or password</string>
+    <string name="invalid_email">Invalid email format</string>
+    <string name="password_requirements">Password must be:</string>
+    <string name="password_length">  at least 8 characters</string>
+    <string name="password_one_digit">  at least 1 digit</string>
+    <string name="email_already_used">Email is already in use</string>
+
+
+    //kazda aplikacja posiada unikatowy Server Client ID, ktory identyfikuej twoja apke w systemach google
+</resources>
