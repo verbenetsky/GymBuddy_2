@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -27,9 +28,12 @@ import com.example.gymbuddy.data.authentication.SignInScreen2
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.presentation.ProfileScreen
 import com.example.gymbuddy.data.authentication.SignUpScreen
+import com.example.gymbuddy.data.authentication.UserInformationViewModel
+import com.example.gymbuddy.presentation.RegistrationScreen
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity() {
     private val googleAuthUiClient by lazy {
@@ -44,136 +48,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             GymBuddyTheme {
-
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
                 ) {
                     val navController = rememberNavController()
-                    val viewModel = viewModel<SignInViewModel>()
-                    val userData by viewModel.userData.collectAsState(initial = null)
+                    val signInViewModel: SignInViewModel = viewModel()
+                    val userInformationViewModel: UserInformationViewModel = viewModel()
 
-                    println("here !$userData")
-                    NavHost(navController = navController, startDestination = "sign_in") {
-
-                        composable("sign_in") {
-
-                            val state by viewModel.state.collectAsStateWithLifecycle()
-
-                            LaunchedEffect(key1 = Unit) {
-                                if (googleAuthUiClient.getSignedInUser() != null)
-                                    navController.navigate("profile")
-                            }
-
-                            val launcher = rememberLauncherForActivityResult(
-                                contract = ActivityResultContracts.StartIntentSenderForResult(),
-                                onResult = { result ->
-                                    if (result.resultCode == RESULT_OK) {
-                                        lifecycleScope.launch {
-                                            val signInResult = googleAuthUiClient.signInWithIntent(
-                                                intent = result.data
-                                                    ?: return@launch// jesli intent jest null to wychodzimy z korutyny launch
-                                            )
-                                            viewModel.onSignInResult(signInResult)
-                                        }
-                                    }
-                                }
-                            )
-
-                            LaunchedEffect(key1 = state.isSignInSuccessful) {
-                                println("isSignInSuccessful: ${state.isSignInSuccessful}")
-
-                                if (state.isSignInSuccessful) {
-                                    Toast.makeText(
-                                        applicationContext,
-                                        "Sign in successful",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    navController.navigate("profile")
-                                    viewModel.resetState()
-                                }
-                            }
-
-                            SignInScreen(
-                                state = state,
-                                onSignInClick = {
-                                    lifecycleScope.launch {
-                                        val signInIntentSender = googleAuthUiClient.signIn()
-                                        launcher.launch(
-                                            IntentSenderRequest.Builder(
-                                                signInIntentSender ?: return@launch
-                                            ).build()
-                                        )
-                                    }
-
-                                },
-                                onSignUpClick = {
-                                    navController.navigate("sign_up")
-                                },
-                                onContinueSignInScreenClick = { navController.navigate("sign_in_2") },
-                                viewModel = viewModel,
-                            )
-                        }
-                        composable(route = "profile") {
-
-                            ProfileScreen(
-                                viewModel = viewModel,
-                                userData = googleAuthUiClient.getSignedInUser(),
-                                onSignOut = {
-                                    viewModel.clearLoginForm()
-                                    if (googleAuthUiClient.getSignedInUser() != null) {
-                                        lifecycleScope.launch {
-                                            googleAuthUiClient.signOut()
-                                            Toast.makeText(
-                                                applicationContext,
-                                                "Signed out",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                        viewModel.signOut()
-                                        navController.navigate("sign_in")
-                                    } else {
-                                        viewModel.signOut()
-                                    }
-
-                                })
-                        }
-
-                        composable(route = "sign_up") {
-                            val loginFormState by viewModel.loginFormState.collectAsState()
-                            SignUpScreen(
-                                viewModel = viewModel,
-                                onCreateAnAccountClick = {
-                                    viewModel.signUp(
-                                        email = loginFormState.email,
-                                        password = loginFormState.password,
-                                        onSuccess = {
-                                            navController.navigate("profile")
-                                        },
-                                        onError = {}
-
-                                    )
-                                },
-                                onHaveAnAccountClick = { navController.navigate("sign_in") },
-                                navigateToProfile = { navController.navigate("profile") }
-                            )
-                        }
-
-                        composable(route = "sign_in_2") {
-                            SignInScreen2(
-                                onForgetPasswordClick = { },
-                                onDontHaveAnAccountClick = { navController.navigate("sign_up") },
-                                viewModel = viewModel,
-                                onEditClick = { navController.navigate("sign_in") },
-                                onLoginSuccess = { navController.navigate("profile") },
-                            )
-                        }
-
-                    }
+                    NavGraph(
+                        navController = navController,
+                        signInViewModel = signInViewModel,
+                        userInformationViewModel = userInformationViewModel,
+                        googleAuthUiClient = googleAuthUiClient,
+                        lifecycleScope = lifecycleScope,
+                        applicationContext = applicationContext
+                    )
                 }
             }
         }
     }
 }
-

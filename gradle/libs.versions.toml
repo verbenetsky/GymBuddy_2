@@ -3,7 +3,7 @@ accompanistSystemuicontroller = "0.30.1"
 agp = "8.7.3"
 coilNetworkOkhttp = "3.0.4"
 coilCompose = "3.0.4"
-credentials = "1.5.0-beta01"
+credentials = "1.5.0-rc01"
 kotlin = "2.1.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -28,6 +28,7 @@ androidx-credentials-play-services-auth = { module = "androidx.credentials:crede
 androidx-material-icons-extended-v151 = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtendedVersion" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coilNetworkOkhttp" }
+google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

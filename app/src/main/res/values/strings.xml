@@ -15,6 +15,17 @@
     <string name="password_length">  at least 8 characters</string>
     <string name="password_one_digit">  at least 1 digit</string>
     <string name="email_already_used">Email is already in use</string>
+    <string name="whats_your_hobbies">What kinds of sports do you like?</string>
+    <string name="when_is_your_birthday">When is your birthday?</string>
+    <string name="registration">Registration</string>
+    <string name="first_name">First Name</string>
+    <string name="last_name">Last Name</string>
+    <string name="user_name">User Name</string>
+    <string name="select_date">Select date</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="selected_x_out_of_5">Selected %1$d out of 5</string>
+    <string name="account_created">Account created</string>
 
 
     //kazda aplikacja posiada unikatowy Server Client ID, ktory identyfikuej twoja apke w systemach google

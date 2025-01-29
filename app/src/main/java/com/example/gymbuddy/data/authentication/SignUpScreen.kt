@@ -1,5 +1,6 @@
 package com.example.gymbuddy.data.authentication
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,7 +43,6 @@ import com.example.gymbuddy.utils.CommonUtils
 
 @Composable
 fun SignUpScreen(
-    navigateToProfile: () -> Unit,
     viewModel: SignInViewModel,
     onHaveAnAccountClick: () -> Unit,
     onCreateAnAccountClick: () -> Unit,
@@ -48,9 +50,16 @@ fun SignUpScreen(
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     val loginFormState by viewModel.loginFormState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+
 
     LaunchedEffect(Unit) {
         viewModel.clearLoginForm()
+    }
+
+    LaunchedEffect(key1 = Unit) {
+        keyboardController?.hide()
     }
 
     Column(
@@ -116,7 +125,7 @@ fun SignUpScreen(
             }
         )
 
-        if (!loginFormState.isPasswordValid) {
+        if (!loginFormState.isPasswordValid && loginFormState.password.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.password_requirements),
@@ -139,19 +148,23 @@ fun SignUpScreen(
 
         Button(
             onClick = {
+                keyboardController?.hide()
                 viewModel.signUp(
-                    loginFormState.email, loginFormState.password,
-                    onSuccess = { navigateToProfile() },
-                    onError = { }
+                    loginFormState.email,
+                    loginFormState.password,
+                    onSuccess = {
+                        onCreateAnAccountClick()
+                        Toast.makeText(context, "Account Created", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { errorMessage ->
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                    }
                 )
-
-                onCreateAnAccountClick()
-            },
-            modifier = Modifier
+            }, modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 48.dp, end = 48.dp),
             shape = RoundedCornerShape(4.dp),
-            enabled = (loginFormState.isEmailValid && loginFormState.isPasswordValid && loginFormState.password.length > 7)
+            enabled = (loginFormState.isEmailValid && loginFormState.isPasswordValid)
         ) {
             Text(
                 text = stringResource(R.string.create_an_account),

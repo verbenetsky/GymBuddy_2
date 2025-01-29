@@ -53,12 +53,11 @@ class GoogleAuthUiClient(
                     UserData(
                         userId = uid,
                         username = displayName,
-                        profilePictureUrl = photoUrl?.toString()
+                        profilePictureUrl = photoUrl?.toString(),
                     )
                 },
                 errorMessage = null
             )
-
         } catch (e: Exception) {
             e.printStackTrace()
             if (e is CancellationException) throw e
@@ -80,7 +79,7 @@ class GoogleAuthUiClient(
         UserData(
             userId = uid,
             username = displayName,
-            profilePictureUrl = photoUrl?.toString()
+            profilePictureUrl = photoUrl?.toString(),
         )
     }
 

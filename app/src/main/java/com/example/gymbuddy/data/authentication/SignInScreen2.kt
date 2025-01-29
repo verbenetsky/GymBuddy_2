@@ -37,6 +37,7 @@ import com.example.gymbuddy.utils.CommonUtils
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 
@@ -52,11 +53,17 @@ fun SignInScreen2(
     var passwordVisible by remember { mutableStateOf(false) }
     val authState by viewModel.authState.collectAsState()
     val loginFormState by viewModel.loginFormState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+
 
     LaunchedEffect(key1 = authState) {
         if (authState is SignInViewModel.AuthState.Authenticated) {
             onLoginSuccess()
         }
+    }
+
+    LaunchedEffect(key1 = Unit) {
+        keyboardController?.hide()
     }
 
     Column(

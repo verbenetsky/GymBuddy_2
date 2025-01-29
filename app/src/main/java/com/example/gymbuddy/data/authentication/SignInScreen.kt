@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -64,6 +65,7 @@ fun SignInScreen(
 ) {
 
     val loginFormState by viewModel.loginFormState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val context = LocalContext.current
     // LE czesc korutyn, LE jest wywolany raz przy pierwszym uzyciu composable lub kiedy key zmienia sie
@@ -76,6 +78,11 @@ fun SignInScreen(
             ).show()
         }
     }
+
+    LaunchedEffect(key1 = Unit) {
+        keyboardController?.hide()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -111,13 +118,13 @@ fun SignInScreen(
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Email, contentDescription = "Email Icon")
             },
-            isError = !loginFormState.isEmailValid,
+            isError = !loginFormState.isEmailValid && loginFormState.email.isNotEmpty(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email
             ),
         )
-        if (!loginFormState.isEmailValid) {
+        if (!loginFormState.isEmailValid && loginFormState.email.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.invalid_email),
                 color = MaterialTheme.colorScheme.error,
@@ -134,7 +141,7 @@ fun SignInScreen(
                 .fillMaxWidth()
                 .padding(start = 48.dp, end = 48.dp),
             shape = RoundedCornerShape(4.dp),
-            enabled = loginFormState.isEmailValid && loginFormState.email.isNotEmpty()
+            enabled = loginFormState.isEmailValid
         ) {
             Text(
                 text = stringResource(R.string.continue_text),

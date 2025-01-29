@@ -44,6 +44,8 @@ android {
 dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.firebase.firestore)
+
 
     implementation(libs.androidx.material.icons.extended.v151)
 

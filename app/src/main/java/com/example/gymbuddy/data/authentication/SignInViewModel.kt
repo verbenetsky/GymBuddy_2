@@ -1,5 +1,6 @@
 package com.example.gymbuddy.data.authentication
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
