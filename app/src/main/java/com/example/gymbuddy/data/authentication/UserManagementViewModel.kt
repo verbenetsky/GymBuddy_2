@@ -1,12 +1,15 @@
 package com.example.gymbuddy.data.authentication
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.data.repository.UserRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class UserInformationViewModel : ViewModel() {
-
+class UserManagementViewModel(private val userRepository: UserRepositoryImpl = UserRepositoryImpl()) :
+    ViewModel() {
 
     private val _userInformationState = MutableStateFlow(UserInformation())
     val userInformationState: StateFlow<UserInformation> = _userInformationState
@@ -40,6 +43,7 @@ class UserInformationViewModel : ViewModel() {
     }
 
     fun transportUserInformation(userData: UserData) {
+
         _userInformationState.update { currentState ->
             currentState.copy(
                 userId = userData.userId,
@@ -52,6 +56,26 @@ class UserInformationViewModel : ViewModel() {
                 hobbies = currentState.hobbies,
                 goal = currentState.goal
             )
+        }
+    }
+
+    fun addUser() {
+        viewModelScope.launch {
+            val userInformation = _userInformationState.value
+            val result = userRepository.addUser(userInformation)
+        }
+    }
+
+    fun deleteUser(){
+        viewModelScope.launch {
+            val userId = _userInformationState.value.userId
+            val result = userRepository.deleteUser(userId)
+        }
+    }
+
+    fun getUserFromFireStoreToViewModel() {
+        viewModelScope.launch {
+
         }
     }
 

@@ -1,6 +1,8 @@
 package com.example.gymbuddy.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -17,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -39,11 +43,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gymbuddy.R
-import com.example.gymbuddy.data.authentication.UserInformationViewModel
+import com.example.gymbuddy.data.authentication.SignInViewModel
+import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.datasource.SportsData.sports
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,47 +60,75 @@ private const val MAX_SIZE_LINE = 15
 
 @Composable
 fun RegistrationScreen(
-    userInformationViewModel: UserInformationViewModel,
+    userInformationViewModel: UserManagementViewModel,
+    viewModel: SignInViewModel,
     onContinueClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    val userData by viewModel.userData.collectAsStateWithLifecycle()
+    val userInformationState by userInformationViewModel.userInformationState.collectAsStateWithLifecycle()
+    val authState by viewModel.authState.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        RegistrationTitle()
-        Spacer(modifier = Modifier.height(4.dp))
-        HorizontalDivider(thickness = 1.dp)
-        Spacer(modifier = Modifier.height(8.dp))
-        HobbiesSection(userInformationViewModel)
-        Spacer(modifier = Modifier.height(8.dp))
-        NameInputFields(userInformationViewModel)
-        Spacer(modifier = Modifier.height(8.dp))
-        UsernameAndGoalFields(userInformationViewModel)
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(thickness = 1.dp)
-        Spacer(modifier = Modifier.height(16.dp))
-        BirthdaySection(userInformationViewModel) { showDatePicker = it }
-        Spacer(modifier = Modifier.height(8.dp))
-        ContinueButton(
-            onContinueClick = onContinueClick,
-            isEnabled = isContinueEnabled(userInformationViewModel)
-        )
+    LaunchedEffect(userData) {
+        println("userData:")
+        println(userData)
+    }
+    LaunchedEffect(userInformationState) {
+        println("userInformationState:")
+        println(userInformationState)
+    }
+    LaunchedEffect(authState) {
+        println(authState)
     }
 
-    if (showDatePicker) {
-        DatePickerModal(
-            onDateSelected = { date ->
-                userInformationViewModel.updateDateOfBirth(date!!)
-                showDatePicker = false
-            },
-            onDismiss = { showDatePicker = false }
-        )
+    if (authState == SignInViewModel.AuthState.Loading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            RegistrationTitle()
+            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider(thickness = 1.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+            HobbiesSection(userInformationViewModel)
+            Spacer(modifier = Modifier.height(8.dp))
+            NameInputFields(userInformationViewModel)
+            Spacer(modifier = Modifier.height(8.dp))
+            UsernameAndGoalFields(userInformationViewModel)
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(thickness = 1.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+            BirthdaySection(userInformationViewModel) { showDatePicker = it }
+            Spacer(modifier = Modifier.height(8.dp))
+            ContinueButton(
+                onContinueClick = onContinueClick,
+                isEnabled = isContinueEnabled(userInformationViewModel)
+            )
+        }
+
+        if (showDatePicker) {
+            DatePickerModal(
+                onDateSelected = { date ->
+                    userInformationViewModel.updateDateOfBirth(date!!)
+                    showDatePicker = false
+                },
+                onDismiss = { showDatePicker = false }
+            )
+        }
     }
 }
+
 
 @Composable
 fun RegistrationTitle() {
@@ -105,7 +140,7 @@ fun RegistrationTitle() {
 }
 
 @Composable
-fun HobbiesSection(userInformationViewModel: UserInformationViewModel) {
+fun HobbiesSection(userInformationViewModel: UserManagementViewModel) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.whats_your_hobbies),
@@ -117,7 +152,7 @@ fun HobbiesSection(userInformationViewModel: UserInformationViewModel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FilterChips(userInformationViewModel: UserInformationViewModel) {
+fun FilterChips(userInformationViewModel: UserManagementViewModel) {
     val selectedSports = remember { mutableStateListOf<String>() }
     val listSize = selectedSports.size
 
@@ -168,7 +203,7 @@ fun FilterChips(userInformationViewModel: UserInformationViewModel) {
 }
 
 @Composable
-fun NameInputFields(userInformationViewModel: UserInformationViewModel) {
+fun NameInputFields(userInformationViewModel: UserManagementViewModel) {
     val userInformationState by userInformationViewModel.userInformationState.collectAsState()
     val onlyLettersRegex = Regex("^[a-zA-Z]*$")
 
@@ -200,7 +235,7 @@ fun NameInputFields(userInformationViewModel: UserInformationViewModel) {
 }
 
 @Composable
-fun UsernameAndGoalFields(userInformationViewModel: UserInformationViewModel) {
+fun UsernameAndGoalFields(userInformationViewModel: UserManagementViewModel) {
     val userInformationState by userInformationViewModel.userInformationState.collectAsState()
 
     Row(modifier = Modifier.fillMaxWidth()) {
@@ -219,7 +254,7 @@ fun UsernameAndGoalFields(userInformationViewModel: UserInformationViewModel) {
             value = userInformationState.goal,
             singleLine = true,
             onValueChange = {
-                    userInformationViewModel.updateGoal(it)
+                userInformationViewModel.updateGoal(it)
             },
             label = { Text("What's your goal?", style = MaterialTheme.typography.bodyMedium) },
             modifier = Modifier.weight(1f)
@@ -229,7 +264,7 @@ fun UsernameAndGoalFields(userInformationViewModel: UserInformationViewModel) {
 
 @Composable
 fun BirthdaySection(
-    userInformationViewModel: UserInformationViewModel,
+    userInformationViewModel: UserManagementViewModel,
     onShowDatePickerChange: (Boolean) -> Unit
 ) {
     val userInformationState by userInformationViewModel.userInformationState.collectAsState()
@@ -320,7 +355,7 @@ fun ContinueButton(
 }
 
 @Composable
-private fun isContinueEnabled(userInformationViewModel: UserInformationViewModel): Boolean {
+private fun isContinueEnabled(userInformationViewModel: UserManagementViewModel): Boolean {
     val userInformationState by userInformationViewModel.userInformationState.collectAsState()
 
     return userInformationState.firstName.isNotEmpty() &&

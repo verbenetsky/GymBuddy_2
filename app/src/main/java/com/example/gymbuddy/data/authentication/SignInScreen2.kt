@@ -52,8 +52,12 @@ fun SignInScreen2(
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     val authState by viewModel.authState.collectAsState()
-    val loginFormState by viewModel.loginFormState.collectAsState()
+
+    val userData by viewModel.userData.collectAsState()
+    val validation by viewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val password by viewModel.password.collectAsState()
 
 
     LaunchedEffect(key1 = authState) {
@@ -64,6 +68,7 @@ fun SignInScreen2(
 
     LaunchedEffect(key1 = Unit) {
         keyboardController?.hide()
+        viewModel.setIsLoginSuccessful()
     }
 
     Column(
@@ -92,7 +97,7 @@ fun SignInScreen2(
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = loginFormState.email,
+            value = userData.email,
             onValueChange = { /* Puste, bo email z poprzedniego kroku (readOnly) */ },
             label = { Text("Email address") },
             leadingIcon = {
@@ -116,7 +121,7 @@ fun SignInScreen2(
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = loginFormState.password,
+            value = password,
             onValueChange = { viewModel.updatePassword(it) },
             label = { Text("Enter your password") },
             leadingIcon = {
@@ -148,7 +153,7 @@ fun SignInScreen2(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (!loginFormState.isLoginSuccessful) {
+        if (!validation.isLoginSuccessful) {
             Text(
                 text = stringResource(R.string.wrong_email_or_password),
                 color = MaterialTheme.colorScheme.error,
@@ -173,8 +178,8 @@ fun SignInScreen2(
             onClick = {
                 // Wywołaj logowanie w ViewModelu
                 viewModel.signIn(
-                    email = loginFormState.email,
-                    password = loginFormState.password,
+                    email = userData.email,
+                    password = password,
                     onSuccess = {
                         // Możesz tu zrobić jakąś dodatkową akcję
                         // ale ogólnie i tak mamy LaunchedEffect, który nasłuchuje AuthState
@@ -190,7 +195,7 @@ fun SignInScreen2(
                 .fillMaxWidth()
                 .padding(start = 48.dp, end = 48.dp),
             shape = RoundedCornerShape(4.dp),
-            enabled = loginFormState.isPasswordValid && loginFormState.password.isNotEmpty()
+            enabled = validation.isPasswordValid && password.isNotEmpty() && userData.email.isNotEmpty()
         ) {
             Text(
                 text = stringResource(R.string.continue_text),

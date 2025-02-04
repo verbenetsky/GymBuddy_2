@@ -27,6 +27,25 @@
     <string name="selected_x_out_of_5">Selected %1$d out of 5</string>
     <string name="account_created">Account created</string>
 
+    <string name="my_profile">My profile</string>
+    <string name="my_friends">My friends</string>
+    <string name="messages">Messages</string>
+    <string name="about">About</string>
+    <string name="logout">Logout</string>
+    <string name="ai_motivator_chatbot">AI motivator chatbot</string>
+    <string name="my_workouts">My workouts</string>
+
+
+    <string name="about_app">The app was built by\nAndrii Verbenets\nfor bachelor dissertation.\n\nVersion 1.0.0\n\nSpecial thanks to all who supported me along the way.\n\nContact: andrij.verbinec@gmail.com\nStart development: 01.07.2025\n</string>
+
+    <string name="gym_buddy_r"> &#169; 2025 GymBuddy</string>
+
+
+    <string name="git_hub_link">GitHub link, Click here!</string>
+
+
+
+
 
     //kazda aplikacja posiada unikatowy Server Client ID, ktory identyfikuej twoja apke w systemach google
 </resources>

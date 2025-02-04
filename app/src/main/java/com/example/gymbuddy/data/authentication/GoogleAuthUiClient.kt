@@ -3,55 +3,61 @@ package com.example.gymbuddy.data.authentication
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import androidx.compose.runtime.collectAsState
 import com.example.gymbuddy.R
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.SignInClient
-import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.auth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
-//troche rzeczy jest przestarzala ale wroce do tego troche pozniej zeby naprawic todo
-
-// One Tap Sign-In jest to logowanie przez konto google bezposrednio
 class GoogleAuthUiClient(
     private val context: Context,
-    private val oneTapClient: SignInClient
+    private val oneTapClient: SignInClient,
 ) {
-    private val auth = Firebase.auth
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    // logowanie powinno byc suspend fun
+    /**
+     * Rozpoczyna proces logowania za pomocą Google One Tap.
+     * Funkcja jest zawieszona (suspend) i zwraca IntentSender do uruchomienia.
+     */
+
     suspend fun signIn(): IntentSender? {
-        val result = try {
-            oneTapClient.beginSignIn( // rozpoczynamy proces logowania
-                buildSignInRequest()
-            ).await() // await() mozemy wykorzystac tylko w suspend fun
-            // await konwertuje callback based operacje na kod wspolbiezny w suspend fun
-            // kiedy await jest wywolywane fun zostaje zawieszona zeby na pobocznym watku wykonac operacje
+        return try {
+            // Rozpoczynamy proces logowania
+            val result = oneTapClient.beginSignIn(buildSignInRequest()).await()
+            // await() konwertuje callback-based operacje na kod współbieżny w suspend fun
+            // kiedy await jest wywoływane, funkcja zostaje zawieszona, aby na pobocznym wątku wykonać operację
+            result.pendingIntent.intentSender
         } catch (e: Exception) {
             e.printStackTrace()
             if (e is CancellationException) throw e
             null
         }
-        return result?.pendingIntent?.intentSender
     }
 
+    /**
+     * Obsługuje wynik logowania z intencji Google One Tap.
+     * Funkcja jest zawieszona (suspend) i zwraca wynik logowania w postaci SignInResult.
+     */
     suspend fun signInWithIntent(intent: Intent): SignInResult {
-        val credentials = oneTapClient.getSignInCredentialFromIntent(intent)
-        val googleIdToken =
-            credentials.googleIdToken // kazdy uzytkownik posiada unikatowy ID, ktory sie stosuje do uwierzytelniena uzytkownika w Firebase
-        val googleCredentials = GoogleAuthProvider.getCredential(googleIdToken, null)
         return try {
-            //proba zalogowania uzytkwnia w Firebase na podstawie google credentials
+            // Pobieramy poświadczenia z intencji
+            val credentials = oneTapClient.getSignInCredentialFromIntent(intent)
+            val googleIdToken = credentials.googleIdToken
+            // Każdy użytkownik posiada unikatowy ID, który się stosuje do uwierzytelnienia użytkownika w Firebase
+            val googleCredentials = GoogleAuthProvider.getCredential(googleIdToken, null)
+            // Próba zalogowania użytkownika w Firebase na podstawie google credentials
             val user = auth.signInWithCredential(googleCredentials).await().user
-            //inicjujemy logowanie usera w firebase na podstawie google credentials
-            //uzyskujemy obiekt FirebaseUser, ktory zawiera info o zalogowanym uzytkowniku
+            // Inicjujemy logowanie usera w Firebase na podstawie google credentials
+            // Uzyskujemy obiekt FirebaseUser, który zawiera informacje o zalogowanym użytkowniku
 
             SignInResult(
                 data = user?.run {
                     UserData(
                         userId = uid,
+                        email = email ?: "",
                         username = displayName,
                         profilePictureUrl = photoUrl?.toString(),
                     )
@@ -61,40 +67,55 @@ class GoogleAuthUiClient(
         } catch (e: Exception) {
             e.printStackTrace()
             if (e is CancellationException) throw e
-            SignInResult(data = null, errorMessage = e.message)
+            SignInResult(data = null, errorMessage = e.message ?: "Unknown error")
         }
     }
 
+    /**
+     * Wylogowuje użytkownika z Google One Tap i Firebase.
+     */
     suspend fun signOut() {
         try {
+            // Wylogowanie z Google One Tap
             oneTapClient.signOut().await()
+            // Wylogowanie z Firebase
             auth.signOut()
+
         } catch (e: Exception) {
             e.printStackTrace()
             if (e is CancellationException) throw e
+            // Możesz dodać dodatkową obsługę błędów tutaj, jeśli jest potrzebna
         }
     }
 
-    fun getSignedInUser() : UserData? = auth.currentUser?.run {
+    /**
+     * Zwraca dane aktualnie zalogowanego użytkownika.
+     * Jeśli użytkownik nie jest zalogowany, zwraca null.
+     */
+    fun getSignedInUser(): UserData? = auth.currentUser?.run {
         UserData(
             userId = uid,
+            email = email ?: "",
             username = displayName,
             profilePictureUrl = photoUrl?.toString(),
         )
     }
 
-    // budujemy zadanie logowania przez google One Tap Sign-In (tworzymy konfiguracje)
+    /**
+     * Buduje konfigurację logowania przez Google One Tap.
+     */
     private fun buildSignInRequest(): BeginSignInRequest {
-        return BeginSignInRequest.Builder().setGoogleIdTokenRequestOptions(
-            BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
-                .setSupported(true) // apka obsluguje logowanie za pomoca Client Server ID
-                .setFilterByAuthorizedAccounts(true) // tutaj to oznacza uzytkowkin bedzie mogl wybrac dowolne konto Google, a nie tylko konta wczesniej uzywane do logowania
-                .setServerClientId(context.getString(R.string.default_web_client_id)) // ustawia ID aplikacji na serwerach Googla
-                .build()
-        )
-            .setAutoSelectEnabled(false)// okresla czy logowanie ma byc automatyczne,czyli
-            // jesli mamy tylko jedno konto to przy true odrazu nas na niego zaloguje
-            // przy false apka zawsze wyswietla ekran wyboru
+        return BeginSignInRequest.Builder()
+            .setGoogleIdTokenRequestOptions(
+                BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                    .setSupported(true) // Aplikacja obsługuje logowanie za pomocą Client Server ID
+                    .setFilterByAuthorizedAccounts(true) // Użytkownik będzie mógł wybrać dowolne konto Google, a nie tylko konta wcześniej używane do logowania
+                    .setServerClientId(context.getString(R.string.default_web_client_id)) // Ustawia ID aplikacji na serwerach Google
+                    .build()
+            )
+            .setAutoSelectEnabled(false) // Określa, czy logowanie ma być automatyczne
+            // Jeśli mamy tylko jedno konto, to przy true od razu nas na niego zaloguje
+            // Przy false aplikacja zawsze wyświetla ekran wyboru
             .build()
     }
 }

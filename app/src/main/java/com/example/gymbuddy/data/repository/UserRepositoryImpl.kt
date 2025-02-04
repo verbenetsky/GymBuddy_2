@@ -1,16 +1,13 @@
 package com.example.gymbuddy.data.repository
 
 import com.example.gymbuddy.data.authentication.UserInformation
-import com.example.gymbuddy.data.authentication.UserInformationViewModel
 import com.example.gymbuddy.repository.DatabaseRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.auth.User
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 
-class UserRepository() : DatabaseRepository {
+class UserRepositoryImpl() : DatabaseRepository {
 
     private val auth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
@@ -55,5 +52,4 @@ class UserRepository() : DatabaseRepository {
             Result.failure(e)
         }
     }
-}
 }

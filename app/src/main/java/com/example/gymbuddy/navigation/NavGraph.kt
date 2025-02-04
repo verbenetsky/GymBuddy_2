@@ -1,4 +1,4 @@
-package com.example.gymbuddy
+package com.example.gymbuddy.navigation
 
 import android.app.Activity
 import android.content.Context
@@ -19,21 +19,29 @@ import com.example.gymbuddy.data.authentication.SignInScreen2
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.presentation.ProfileScreen
 import com.example.gymbuddy.data.authentication.SignUpScreen
-import com.example.gymbuddy.data.authentication.UserInformationViewModel
+import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.presentation.RegistrationScreen
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.example.gymbuddy.scaffoldscreens.AboutScreen
+import com.example.gymbuddy.scaffoldscreens.MyScaffold
 
 @Composable
 fun NavGraph(
+    authState: SignInViewModel.AuthState,
     navController: NavHostController,
     signInViewModel: SignInViewModel,
-    userInformationViewModel: UserInformationViewModel,
+    userManagementViewModel: UserManagementViewModel,
     googleAuthUiClient: GoogleAuthUiClient,
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
 ) {
+
     NavHost(navController = navController, startDestination = "sign_in") {
+
         composable("sign_in") {
             val state by signInViewModel.state.collectAsStateWithLifecycle()
 
@@ -83,33 +91,38 @@ fun NavGraph(
                 onSignUpClick = {
                     navController.navigate("sign_up")
                 },
-                onContinueSignInScreenClick = { navController.navigate("sign_in_2") },
+                onContinueSignInScreenClick = {
+                    navController.navigate("sign_in_2")
+                    signInViewModel.resetPassword()
+                },
                 viewModel = signInViewModel,
             )
         }
 
         composable("profile") {
-            ProfileScreen(
-                viewModel = signInViewModel,
-                userData = googleAuthUiClient.getSignedInUser(),
-                onSignOut = {
-                    signInViewModel.clearLoginForm()
-                    if (googleAuthUiClient.getSignedInUser() != null) {
-                        lifecycleScope.launch {
-                            googleAuthUiClient.signOut()
-                            Toast.makeText(
-                                applicationContext,
-                                "Signed out",
-                                Toast.LENGTH_LONG
-                            ).show()
+            googleAuthUiClient.getSignedInUser()?.let { it1 ->
+                ProfileScreen(
+                    viewModel = signInViewModel,
+                    userData = it1,
+                    onSignOut = {
+                        signInViewModel.clearLoginForm()
+                        if (googleAuthUiClient.getSignedInUser() != null) {
+                            lifecycleScope.launch {
+                                googleAuthUiClient.signOut()
+                                Toast.makeText(
+                                    applicationContext,
+                                    "Signed out",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            signInViewModel.signOut()
+                            navController.navigate("sign_in")
+                        } else {
+                            signInViewModel.signOut()
                         }
-                        signInViewModel.signOut()
-                        navController.navigate("sign_in")
-                    } else {
-                        signInViewModel.signOut()
                     }
-                }
-            )
+                )
+            }
         }
 
         composable("sign_up") {
@@ -118,25 +131,73 @@ fun NavGraph(
                 onCreateAnAccountClick = {
                     navController.navigate("registration")
                 },
-                onHaveAnAccountClick = { navController.navigate("sign_in") }
+                onHaveAnAccountClick = {
+                    navController.navigate("sign_in")
+                }
             )
         }
 
         composable("sign_in_2") {
             SignInScreen2(
                 onForgetPasswordClick = { },
-                onDontHaveAnAccountClick = { navController.navigate("sign_up") },
+                onDontHaveAnAccountClick = {
+                    navController.navigate("sign_up")
+                    signInViewModel.resetPassword()
+                },
                 viewModel = signInViewModel,
                 onEditClick = { navController.navigate("sign_in") },
-                onLoginSuccess = { navController.navigate("profile") },
+                onLoginSuccess = { navController.navigate("my_app") },
             )
         }
 
         composable("registration") {
             RegistrationScreen(
-                userInformationViewModel = userInformationViewModel,
-                onContinueClick = { },
+                userInformationViewModel = userManagementViewModel,
+                onContinueClick = {
+                    userManagementViewModel.transportUserInformation(
+                        signInViewModel.userData.value
+                    )
+                    userManagementViewModel.addUser()
+                    navController.navigate("my_app")
+                },
+                viewModel = signInViewModel,
             )
         }
+
+        composable("my_app") {
+            val innerNavController = rememberNavController()
+
+            MyScaffold(
+                onProfileClick = { innerNavController.navigate("profile_screen") },
+                onFriendsClick = { /* obsługa kliknięcia */ },
+                onMyWorkoutsClick = { /* obsługa kliknięcia */ },
+                onAIChatBotClick = { /* obsługa kliknięcia */ },
+                onMessageClick = { /* obsługa kliknięcia */ },
+                onAboutClick = { innerNavController.navigate("about_screen") },
+                onLogoutClick = { /* obsługa wylogowania */ },
+                onImageClick = { /* obsługa kliknięcia obrazka */ },
+                onSearchClick = { /* obsługa wyszukiwania */ },
+                userManagementViewModel = userManagementViewModel,
+            ) { innerPadding ->
+                NavHost(
+                    navController = innerNavController,
+                    startDestination = "about_screen", // np. ekran główny
+                    modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable("profile_screen") {
+                            com.example.gymbuddy.scaffoldscreens.ProfileScreen(
+                                onImageClick = { },
+                                onMoreClick = {},
+                                onEditClick = {},
+                                userManagementViewModel = userManagementViewModel,
+                            )
+                    }
+                    composable("about_screen") {
+                        AboutScreen()
+                    }
+                }
+            }
+        }
+
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,33 +28,34 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserData
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
     viewModel: SignInViewModel,
-    userData: UserData?,
+    userData: UserData,
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val loginFormState by viewModel.loginFormState.collectAsState()
+    val userData2 by viewModel.userData.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(key1 = Unit) {
         keyboardController?.hide()
     }
 
-    if (userData == null) {
+
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
         }
-        return
-    }
 
-    val profileUrl = userData.profilePictureUrl ?: "https://images.pexels.com/photos/1563356/pexels-photo-1563356.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-    val displayName = userData.username ?: loginFormState.email
+    val profileUrl = userData2.profilePictureUrl ?: "https://images.pexels.com/photos/1563356/pexels-photo-1563356.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+    val displayName = userData2.username ?: userData2.email
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -88,3 +90,5 @@ fun ProfileScreen(
         }
     }
 }
+
+

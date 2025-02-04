@@ -64,7 +64,8 @@ fun SignInScreen(
     modifier: Modifier = Modifier
 ) {
 
-    val loginFormState by viewModel.loginFormState.collectAsState()
+    val userData by viewModel.userData.collectAsState()
+    val validation by viewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val context = LocalContext.current
@@ -112,19 +113,19 @@ fun SignInScreen(
 
 
         OutlinedTextField(
-            value = loginFormState.email,
+            value = userData.email,
             onValueChange = { viewModel.updateEmail(it) },
             label = { Text("Enter your email") },
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Email, contentDescription = "Email Icon")
             },
-            isError = !loginFormState.isEmailValid && loginFormState.email.isNotEmpty(),
+            isError = !validation.isEmailValid && userData.email.isNotEmpty(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email
             ),
         )
-        if (!loginFormState.isEmailValid && loginFormState.email.isNotEmpty()) {
+        if (!validation.isEmailValid && userData.email.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.invalid_email),
                 color = MaterialTheme.colorScheme.error,
@@ -141,7 +142,7 @@ fun SignInScreen(
                 .fillMaxWidth()
                 .padding(start = 48.dp, end = 48.dp),
             shape = RoundedCornerShape(4.dp),
-            enabled = loginFormState.isEmailValid
+            enabled = validation.isEmailValid && userData.email.isNotEmpty()
         ) {
             Text(
                 text = stringResource(R.string.continue_text),
@@ -198,31 +199,8 @@ fun SignInScreen(
             }
         }
     }
-
-
 }
 
-//@Preview(showBackground = true)
-//@Composable
-//private fun SignInScreenPreview() {
-//    val state = SingInState()
-//    SignInScreen(
-//        state = state,
-//        onSignUpClick = { },
-//        onSignInClick = { },
-//        onContinueSignInScreenClick = { },
-//        modifier = TODO(),
-//    )
-//}
-
-@Composable
-fun googleButton(): Color {
-    return if (isSystemInDarkTheme()) {
-        googleButtonColorDark
-    } else {
-        googleButtonColorLight
-    }
-}
 
 @Composable
 fun borderColor(): Color {

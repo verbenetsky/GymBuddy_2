@@ -29,6 +29,7 @@ val Typography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp
     ),
+
     titleLarge = TextStyle(
         fontFamily = Poppins,
         fontWeight = FontWeight.Bold,
@@ -50,6 +51,7 @@ val Typography = Typography(
         lineHeight = 22.sp,
         letterSpacing = 2.sp
     ),
+
     displayLarge = TextStyle(
         fontFamily = Poppins,
         fontWeight = FontWeight.Light,
@@ -58,3 +60,15 @@ val Typography = Typography(
         letterSpacing = 0.sp
     ),
 )
+
+val Typography.appBarTitle: TextStyle
+    get() = TextStyle(
+        fontFamily = Poppins,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 26.sp,
+        lineHeight = 40.sp,
+        letterSpacing = 1.sp
+    )
+
+
+

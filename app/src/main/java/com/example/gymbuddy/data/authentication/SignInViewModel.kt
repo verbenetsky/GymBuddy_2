@@ -1,7 +1,5 @@
 package com.example.gymbuddy.data.authentication
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -21,24 +19,24 @@ class SignInViewModel : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unauthenticated)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-    private val _userData: MutableStateFlow<UserData?> = MutableStateFlow(null)
-    val userData: StateFlow<UserData?> = _userData.asStateFlow()
+    private val _userData = MutableStateFlow(UserData())
+    val userData: StateFlow<UserData> = _userData.asStateFlow()
+
+    private val _signInValidation = MutableStateFlow(SignInValidation())
+    val signInValidation: StateFlow<SignInValidation> = _signInValidation.asStateFlow()
 
     private val _state = MutableStateFlow(SingInState())
     val state = _state.asStateFlow()
 
-    private val _loginFormState = MutableStateFlow(LoginFormState())
-    val loginFormState: StateFlow<LoginFormState> = _loginFormState.asStateFlow()
-
-    private val _isEmailWasUsed = MutableStateFlow<Boolean>(false)
+    private val _isEmailWasUsed = MutableStateFlow(false)
     val isEmailWasUsed: StateFlow<Boolean> = _isEmailWasUsed.asStateFlow()
 
-    private val _password = MutableStateFlow<String>("")
+    private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
-    init {
-        checkAuthStatus()
-    }
+//    init {
+//        checkAuthStatus()
+//    }
 
     private fun checkAuthStatus() {
         val user = auth.currentUser
@@ -64,12 +62,12 @@ class SignInViewModel : ViewModel() {
                 _authState.value = AuthState.Authenticated
                 onSuccess()
             } catch (e: Exception) {
-                _loginFormState.update { currentState ->
+                _signInValidation.update { currentState ->
                     currentState.copy(
                         isLoginSuccessful = false,
-                        password = ""
                     )
                 }
+                _password.value = ""
                 _authState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
                 onError(e.localizedMessage ?: "Unknown error")
             }
@@ -77,7 +75,11 @@ class SignInViewModel : ViewModel() {
     }
 
     fun clearLoginForm() {
-        _loginFormState.value = LoginFormState()
+        _userData.update { currentState ->
+            currentState.copy(
+                email = "",
+            )
+        }
     }
 
     fun signUp(
@@ -89,16 +91,23 @@ class SignInViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                auth.createUserWithEmailAndPassword(email, password).await()
-                _authState.value = AuthState.Authenticated
+                val result = auth.createUserWithEmailAndPassword(email, password)
+                    .await()
+                val userId = result.user?.uid ?: throw Exception("User ID is null")
+                _userData.update { currentState -> currentState.copy(userId = userId) }
                 _isEmailWasUsed.value = false
                 onSuccess()
+                resetPassword()
+                _authState.value = AuthState.Authenticated
             } catch (e: Exception) {
+                resetPassword()
                 when (e) {
                     is FirebaseAuthUserCollisionException -> {
                         _isEmailWasUsed.value = true
-                        onError("Email jest już używany.")
+                        _authState.value = AuthState.Error("Email is already in use.")
+                        onError("Email is already in use.")
                     }
+
                     else -> {
                         _authState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
                         onError(e.localizedMessage ?: "Unknown error")
@@ -117,18 +126,32 @@ class SignInViewModel : ViewModel() {
     }
 
     fun updateEmail(newEmail: String) {
-        _loginFormState.update { currentState ->
+        _userData.update { it.copy(email = newEmail) }
+        _signInValidation.update { currentState ->
             currentState.copy(
-                email = newEmail,
-                isEmailValid = validateEmail(newEmail)
+                isEmailValid = validateEmail(
+                    newEmail
+                )
             )
         }
     }
 
+    fun resetPassword() {
+        _password.value = ""
+    }
+
+    private fun validateEmail(email: String): Boolean {
+        return emailPattern.matcher(email).matches()
+    }
+
+    private fun validatePassword(password: String): Boolean {
+        return passwordPattern.matcher(password).matches()
+    }
+
     fun updatePassword(newPassword: String) {
-        _loginFormState.update { currentState ->
+        _password.value = newPassword
+        _signInValidation.update { currentState ->
             currentState.copy(
-                password = newPassword,
                 isPasswordValid = validatePassword(newPassword)
             )
         }
@@ -148,11 +171,16 @@ class SignInViewModel : ViewModel() {
         _state.update { SingInState() }
     }
 
-    private fun validateEmail(email: String): Boolean {
-        return EMAIL_PATTERN.matcher(email).matches()
+    fun setIsLoginSuccessful() {
+        _signInValidation.update { currentState ->
+            currentState.copy(
+                isLoginSuccessful = true,
+            )
+        }
     }
 
-    private val EMAIL_PATTERN: Pattern = Pattern.compile(
+
+    private val emailPattern: Pattern = Pattern.compile(
         "[a-zA-Z0-9+._%\\-]{1,256}" +
                 "@" +
                 "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}" +
@@ -162,7 +190,7 @@ class SignInViewModel : ViewModel() {
                 ")+"
     )
 
-    private val PASSWORD_PATTERN: Pattern = Pattern.compile(
+    private val passwordPattern: Pattern = Pattern.compile(
         "^" +
                 "(?=.*[0-9])" +
                 "(?=.*[a-zA-Z])" +
@@ -170,9 +198,6 @@ class SignInViewModel : ViewModel() {
                 "$"
     )
 
-    private fun validatePassword(password: String): Boolean {
-        return PASSWORD_PATTERN.matcher(password).matches()
-    }
 
     fun analyzePasswordRequirementsOneDigit(password: String): Boolean {
         return password.any { it.isDigit() }
@@ -184,10 +209,10 @@ class SignInViewModel : ViewModel() {
 
 
     sealed class AuthState {
-        object GoogleAuthenticated : AuthState()
-        object Authenticated : AuthState()
-        object Unauthenticated : AuthState()
-        object Loading : AuthState()
+        data object GoogleAuthenticated : AuthState()
+        data object Authenticated : AuthState()
+        data object Unauthenticated : AuthState()
+        data object Loading : AuthState()
         data class Error(val message: String) : AuthState()
     }
 

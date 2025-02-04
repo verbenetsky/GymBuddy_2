@@ -8,7 +8,7 @@ data class UserInformation(
     val username: String = "",
     val profilePictureUrl: String = "",
     val dateOfBirth: Long = 0,
-    val hobbies: List<String> = emptyList<String>(),
+    val hobbies: List<String> = emptyList(),
     val goal: String = ""
 )
 
