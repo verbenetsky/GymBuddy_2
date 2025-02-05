@@ -17,7 +17,6 @@ import com.example.gymbuddy.data.authentication.GoogleAuthUiClient
 import com.example.gymbuddy.data.authentication.SignInScreen
 import com.example.gymbuddy.data.authentication.SignInScreen2
 import com.example.gymbuddy.data.authentication.SignInViewModel
-import com.example.gymbuddy.presentation.ProfileScreen
 import com.example.gymbuddy.data.authentication.SignUpScreen
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.presentation.RegistrationScreen
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun NavGraph(
@@ -46,8 +46,9 @@ fun NavGraph(
             val state by signInViewModel.state.collectAsStateWithLifecycle()
 
             LaunchedEffect(Unit) {
-                if (googleAuthUiClient.getSignedInUser() != null)
-                    navController.navigate("profile")
+                if (authState == SignInViewModel.AuthState.Authenticated || authState == SignInViewModel.AuthState.GoogleAuthenticated) {
+                    navController.navigate("my_app")
+                }
             }
 
             val launcher = rememberLauncherForActivityResult(
@@ -99,30 +100,46 @@ fun NavGraph(
             )
         }
 
-        composable("profile") {
-            googleAuthUiClient.getSignedInUser()?.let { it1 ->
-                ProfileScreen(
-                    viewModel = signInViewModel,
-                    userData = it1,
-                    onSignOut = {
-                        signInViewModel.clearLoginForm()
-                        if (googleAuthUiClient.getSignedInUser() != null) {
-                            lifecycleScope.launch {
-                                googleAuthUiClient.signOut()
-                                Toast.makeText(
-                                    applicationContext,
-                                    "Signed out",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                            signInViewModel.signOut()
-                            navController.navigate("sign_in")
-                        } else {
-                            signInViewModel.signOut()
-                        }
-                    }
-                )
-            }
+//        composable("profile") {
+//            googleAuthUiClient.getSignedInUser()?.let { it1 ->
+//                ProfileScreen(
+//                    viewModel = signInViewModel,
+//                    userData = it1,
+//                    onSignOut = {
+//                        signInViewModel.clearLoginForm()
+//                        if (googleAuthUiClient.getSignedInUser() != null) {
+//                            lifecycleScope.launch {
+//                                googleAuthUiClient.signOut()
+//                                Toast.makeText(
+//                                    applicationContext,
+//                                    "Signed out",
+//                                    Toast.LENGTH_LONG
+//                                ).show()
+//                            }
+//                            signInViewModel.signOut()
+//                            navController.navigate("sign_in")
+//                        } else {
+//                            signInViewModel.signOut()
+//                        }
+//                    }
+//                )
+//            }
+//        }
+
+        composable("sign_in_2") {
+            SignInScreen2(
+                onForgetPasswordClick = { },
+                onDontHaveAnAccountClick = {
+                    navController.navigate("sign_up")
+                    signInViewModel.resetPassword()
+                },
+                viewModel = signInViewModel,
+                onEditClick = { navController.navigate("sign_in") },
+                onLoginSuccess = {
+                    navController.navigate("my_app")
+                    userManagementViewModel.getUserFromFireStoreToViewModel()
+                },
+            )
         }
 
         composable("sign_up") {
@@ -137,18 +154,6 @@ fun NavGraph(
             )
         }
 
-        composable("sign_in_2") {
-            SignInScreen2(
-                onForgetPasswordClick = { },
-                onDontHaveAnAccountClick = {
-                    navController.navigate("sign_up")
-                    signInViewModel.resetPassword()
-                },
-                viewModel = signInViewModel,
-                onEditClick = { navController.navigate("sign_in") },
-                onLoginSuccess = { navController.navigate("my_app") },
-            )
-        }
 
         composable("registration") {
             RegistrationScreen(
@@ -174,7 +179,12 @@ fun NavGraph(
                 onAIChatBotClick = { /* obsługa kliknięcia */ },
                 onMessageClick = { /* obsługa kliknięcia */ },
                 onAboutClick = { innerNavController.navigate("about_screen") },
-                onLogoutClick = { /* obsługa wylogowania */ },
+                onLogoutClick = {
+                    signInViewModel.logOut()
+                    navController.navigate("sign_in")
+                    userManagementViewModel.clearForm()
+                    signInViewModel.clearUserData()
+                },
                 onImageClick = { /* obsługa kliknięcia obrazka */ },
                 onSearchClick = { /* obsługa wyszukiwania */ },
                 userManagementViewModel = userManagementViewModel,
@@ -185,12 +195,12 @@ fun NavGraph(
                     modifier = Modifier.padding(innerPadding)
                 ) {
                     composable("profile_screen") {
-                            com.example.gymbuddy.scaffoldscreens.ProfileScreen(
-                                onImageClick = { },
-                                onMoreClick = {},
-                                onEditClick = {},
-                                userManagementViewModel = userManagementViewModel,
-                            )
+                        com.example.gymbuddy.scaffoldscreens.ProfileScreen(
+                            onImageClick = { },
+                            onMoreClick = {},
+                            onEditClick = {},
+                            userManagementViewModel = userManagementViewModel,
+                        )
                     }
                     composable("about_screen") {
                         AboutScreen()

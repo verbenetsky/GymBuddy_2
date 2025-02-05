@@ -34,13 +34,13 @@ class SignInViewModel : ViewModel() {
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
-//    init {
-//        checkAuthStatus()
-//    }
+    init {
+        checkAuthStatus()
+    }
 
     private fun checkAuthStatus() {
         val user = auth.currentUser
-        println(user)
+        println("user: $user")
         if (user == null)
             _authState.value = AuthState.Unauthenticated
         else {
@@ -51,6 +51,7 @@ class SignInViewModel : ViewModel() {
                 AuthState.Authenticated
             }
         }
+        println(authState.value)
     }
 
 
@@ -80,6 +81,10 @@ class SignInViewModel : ViewModel() {
                 email = "",
             )
         }
+    }
+
+    fun clearUserData() {
+        _userData.value = UserData()
     }
 
     fun signUp(
@@ -117,13 +122,14 @@ class SignInViewModel : ViewModel() {
         }
     }
 
-    fun signOut() {
+    fun logOut() {
         val user = auth.currentUser
         if (user != null) {
             auth.signOut()
         }
         _authState.value = AuthState.Unauthenticated
     }
+
 
     fun updateEmail(newEmail: String) {
         _userData.update { it.copy(email = newEmail) }
@@ -205,6 +211,10 @@ class SignInViewModel : ViewModel() {
 
     fun analyzePasswordRequirementsLength(password: String): Boolean {
         return 8 <= password.length
+    }
+
+    fun updateAuthState(newState: AuthState) {
+        _authState.value = newState
     }
 
 

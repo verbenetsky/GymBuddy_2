@@ -1,15 +1,26 @@
 package com.example.gymbuddy.data.authentication
 
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.repository.UserRepositoryImpl
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class UserManagementViewModel(private val userRepository: UserRepositoryImpl = UserRepositoryImpl()) :
+class UserManagementViewModel(
+    private val userRepository: UserRepositoryImpl = UserRepositoryImpl()
+) :
     ViewModel() {
+
+
+    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val db = Firebase.firestore
 
     private val _userInformationState = MutableStateFlow(UserInformation())
     val userInformationState: StateFlow<UserInformation> = _userInformationState
@@ -42,8 +53,13 @@ class UserManagementViewModel(private val userRepository: UserRepositoryImpl = U
         _userInformationState.update { currentState -> currentState.copy(hobbies = currentState.hobbies + hobby) }
     }
 
-    fun transportUserInformation(userData: UserData) {
+    init {
+        getUserFromFireStoreToViewModel()
+    }
 
+
+
+    fun transportUserInformation(userData: UserData) {
         _userInformationState.update { currentState ->
             currentState.copy(
                 userId = userData.userId,
@@ -58,6 +74,23 @@ class UserManagementViewModel(private val userRepository: UserRepositoryImpl = U
             )
         }
     }
+    private fun updateUserInformation(userInformation: UserInformation) {
+        _userInformationState.update { currentState ->
+            currentState.copy(
+                firstName = userInformation.firstName,
+                lastName = userInformation.lastName,
+                username = userInformation.username,
+                hobbies = userInformation.hobbies,
+                goal = userInformation.goal,
+                email = userInformation.email,
+                profilePictureUrl = userInformation.profilePictureUrl,
+                dateOfBirth = userInformation.dateOfBirth,
+            )
+        }
+    }
+    fun clearForm() {
+        _userInformationState.value = UserInformation()
+    }
 
     fun addUser() {
         viewModelScope.launch {
@@ -66,7 +99,7 @@ class UserManagementViewModel(private val userRepository: UserRepositoryImpl = U
         }
     }
 
-    fun deleteUser(){
+    fun deleteUser() {
         viewModelScope.launch {
             val userId = _userInformationState.value.userId
             val result = userRepository.deleteUser(userId)
@@ -75,7 +108,19 @@ class UserManagementViewModel(private val userRepository: UserRepositoryImpl = U
 
     fun getUserFromFireStoreToViewModel() {
         viewModelScope.launch {
-
+            val userId = firebaseAuth.currentUser?.uid
+            if (userId != null) {
+                db.collection("users").document(userId).get().addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val userInformation = document.toObject(UserInformation::class.java)
+                        if (userInformation != null) {
+                            updateUserInformation(userInformation)
+                        }
+                    }
+                }.addOnFailureListener { exception ->
+                    println("Error getting user data: $exception")
+                }
+            }
         }
     }
 
