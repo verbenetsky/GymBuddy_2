@@ -1,17 +1,16 @@
 package com.example.gymbuddy.data.authentication
 
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.repository.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.regex.Pattern
 
 class UserManagementViewModel(
     private val userRepository: UserRepositoryImpl = UserRepositoryImpl()
@@ -26,15 +25,21 @@ class UserManagementViewModel(
     val userInformationState: StateFlow<UserInformation> = _userInformationState
 
     fun updateFirstName(firstName: String) {
-        _userInformationState.update { currentState -> currentState.copy(firstName = firstName) }
+        if (firstName.matches(lastAndFirstNamePattern.toRegex())) {
+            _userInformationState.update { currentState -> currentState.copy(firstName = firstName) }
+        }
     }
 
     fun updateLastName(lastName: String) {
-        _userInformationState.update { currentState -> currentState.copy(lastName = lastName) }
+        if (lastName.matches(lastAndFirstNamePattern.toRegex())) {
+            _userInformationState.update { currentState -> currentState.copy(lastName = lastName) }
+        }
     }
 
     fun updateUsername(username: String) {
-        _userInformationState.update { currentState -> currentState.copy(username = username) }
+        if (username.matches(usernamePattern.toRegex())) {
+            _userInformationState.update { currentState -> currentState.copy(username = username) }
+        }
     }
 
     fun updateDateOfBirth(dateOfBirth: Long) {
@@ -53,10 +58,13 @@ class UserManagementViewModel(
         _userInformationState.update { currentState -> currentState.copy(hobbies = currentState.hobbies + hobby) }
     }
 
+    fun updateHobbies(hobbies: List<String>) {
+        _userInformationState.update { currentState -> currentState.copy(hobbies = hobbies) }
+    }
+
     init {
         getUserFromFireStoreToViewModel()
     }
-
 
 
     fun transportUserInformation(userData: UserData) {
@@ -74,9 +82,11 @@ class UserManagementViewModel(
             )
         }
     }
+
     private fun updateUserInformation(userInformation: UserInformation) {
         _userInformationState.update { currentState ->
             currentState.copy(
+                userId = userInformation.userId,
                 firstName = userInformation.firstName,
                 lastName = userInformation.lastName,
                 username = userInformation.username,
@@ -88,6 +98,7 @@ class UserManagementViewModel(
             )
         }
     }
+
     fun clearForm() {
         _userInformationState.value = UserInformation()
     }
@@ -95,15 +106,32 @@ class UserManagementViewModel(
     fun addUser() {
         viewModelScope.launch {
             val userInformation = _userInformationState.value
-            val result = userRepository.addUser(userInformation)
+            userRepository.addUser(userInformation)
         }
     }
 
-    fun deleteUser() {
+    fun deleteUserDataFromFirestore() {
         viewModelScope.launch {
             val userId = _userInformationState.value.userId
-            val result = userRepository.deleteUser(userId)
+            userRepository.deleteUser(userId)
         }
+    }
+
+    fun updateUser(newUserData: UserInformation) {
+        viewModelScope.launch {
+            val userId = firebaseAuth.currentUser?.uid
+            if (userId != null) {
+                db.collection("users").document(userId)
+                    .set(newUserData)
+                    .addOnSuccessListener {
+                        println("Data has been updated successfully")
+                    }
+                    .addOnFailureListener { exception ->
+                        println("Error updating data: $exception")
+                    }
+            }
+        }
+
     }
 
     fun getUserFromFireStoreToViewModel() {
@@ -123,6 +151,9 @@ class UserManagementViewModel(
             }
         }
     }
+
+    private val lastAndFirstNamePattern: Pattern = Pattern.compile("^[a-zA-Z]*$")
+    private val usernamePattern: Pattern = Pattern.compile("^[a-zA-Z0-9_.-]*$")
 
 }
 

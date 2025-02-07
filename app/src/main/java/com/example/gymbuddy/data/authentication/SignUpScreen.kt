@@ -69,10 +69,6 @@ fun SignUpScreen(
         viewModel.resetPassword()
     }
 
-    LaunchedEffect(authState) {
-        println(authState)
-    }
-
     if (authState == SignInViewModel.AuthState.Loading) {
         Box(
             modifier = Modifier

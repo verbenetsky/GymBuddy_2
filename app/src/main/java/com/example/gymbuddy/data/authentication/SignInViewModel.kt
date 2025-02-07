@@ -185,6 +185,36 @@ class SignInViewModel : ViewModel() {
         }
     }
 
+    fun deleteUser() {
+        val user = FirebaseAuth.getInstance().currentUser
+        user?.delete()?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                println("User deleted successfully")
+            } else {
+                println("Error deleting user: ${task.exception?.message}")
+            }
+        }
+    }
+
+    fun analyzePasswordRequirementsOneDigit(password: String): Boolean {
+        return password.any { it.isDigit() }
+    }
+
+    fun analyzePasswordRequirementsLength(password: String): Boolean {
+        return 8 <= password.length
+    }
+
+    fun updateAuthStateToUnauthenticated() {
+        _authState.value = AuthState.Unauthenticated
+    }
+
+    fun updateAuthStateToAuthenticated() {
+        _authState.value = AuthState.Authenticated
+    }
+
+    fun updateAuthStateToLoading() {
+        _authState.value = AuthState.Loading
+    }
 
     private val emailPattern: Pattern = Pattern.compile(
         "[a-zA-Z0-9+._%\\-]{1,256}" +
@@ -195,7 +225,6 @@ class SignInViewModel : ViewModel() {
                 "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
                 ")+"
     )
-
     private val passwordPattern: Pattern = Pattern.compile(
         "^" +
                 "(?=.*[0-9])" +
@@ -203,20 +232,6 @@ class SignInViewModel : ViewModel() {
                 ".{8,}" +
                 "$"
     )
-
-
-    fun analyzePasswordRequirementsOneDigit(password: String): Boolean {
-        return password.any { it.isDigit() }
-    }
-
-    fun analyzePasswordRequirementsLength(password: String): Boolean {
-        return 8 <= password.length
-    }
-
-    fun updateAuthState(newState: AuthState) {
-        _authState.value = newState
-    }
-
 
     sealed class AuthState {
         data object GoogleAuthenticated : AuthState()

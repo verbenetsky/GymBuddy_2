@@ -34,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -66,21 +65,7 @@ fun RegistrationScreen(
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
-    val userData by viewModel.userData.collectAsStateWithLifecycle()
-    val userInformationState by userInformationViewModel.userInformationState.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
-
-    LaunchedEffect(userData) {
-        println("userData:")
-        println(userData)
-    }
-    LaunchedEffect(userInformationState) {
-        println("userInformationState:")
-        println(userInformationState)
-    }
-    LaunchedEffect(authState) {
-        println(authState)
-    }
 
     if (authState == SignInViewModel.AuthState.Loading) {
         Box(

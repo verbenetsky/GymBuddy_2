@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
+import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -39,17 +40,17 @@ fun NavGraph(
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
 ) {
-
     NavHost(navController = navController, startDestination = "sign_in") {
 
         composable("sign_in") {
             val state by signInViewModel.state.collectAsStateWithLifecycle()
-
-            LaunchedEffect(Unit) {
-                if (authState == SignInViewModel.AuthState.Authenticated || authState == SignInViewModel.AuthState.GoogleAuthenticated) {
-                    navController.navigate("my_app")
-                }
-            }
+//            LaunchedEffect(authState) {
+//                if (authState == SignInViewModel.AuthState.Authenticated || authState == SignInViewModel.AuthState.GoogleAuthenticated) {
+//                    navController.navigate("my_app")
+//                } else {
+//                    navController.navigate("sign_in")
+//                }
+//            }
 
             val launcher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -164,6 +165,7 @@ fun NavGraph(
                     )
                     userManagementViewModel.addUser()
                     navController.navigate("my_app")
+                    signInViewModel.updateAuthStateToAuthenticated()
                 },
                 viewModel = signInViewModel,
             )
@@ -191,15 +193,28 @@ fun NavGraph(
             ) { innerPadding ->
                 NavHost(
                     navController = innerNavController,
-                    startDestination = "about_screen", // np. ekran główny
+                    startDestination = "about_screen",
                     modifier = Modifier.padding(innerPadding)
                 ) {
                     composable("profile_screen") {
-                        com.example.gymbuddy.scaffoldscreens.ProfileScreen(
-                            onImageClick = { },
-                            onMoreClick = {},
-                            onEditClick = {},
+                        ProfileScreen(
+                            onImageClick = {},
+                            onDeleteClick = {
+                                navController.navigate("sign_in")
+                                signInViewModel.updateAuthStateToLoading()
+                                signInViewModel.deleteUser()
+                                signInViewModel.clearUserData()
+                                signInViewModel.updateAuthStateToUnauthenticated()
+                                userManagementViewModel.deleteUserDataFromFirestore()
+                                userManagementViewModel.clearForm()
+                            },
+                            authState = authState,
                             userManagementViewModel = userManagementViewModel,
+                            onSaveClick = {
+                                userManagementViewModel.updateUser(
+                                    userManagementViewModel.userInformationState.value
+                                )
+                            },
                         )
                     }
                     composable("about_screen") {
