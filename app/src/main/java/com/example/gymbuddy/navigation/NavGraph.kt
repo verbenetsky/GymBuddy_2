@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
+import androidx.core.net.toUri
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
@@ -40,7 +41,7 @@ fun NavGraph(
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
 ) {
-    NavHost(navController = navController, startDestination = "sign_in") {
+    NavHost(navController = navController, startDestination = "my_app") {
 
         composable("sign_in") {
             val state by signInViewModel.state.collectAsStateWithLifecycle()
@@ -198,7 +199,6 @@ fun NavGraph(
                 ) {
                     composable("profile_screen") {
                         ProfileScreen(
-                            onImageClick = {},
                             onDeleteClick = {
                                 navController.navigate("sign_in")
                                 signInViewModel.updateAuthStateToLoading()
@@ -214,6 +214,7 @@ fun NavGraph(
                                 userManagementViewModel.updateUser(
                                     userManagementViewModel.userInformationState.value
                                 )
+                                userManagementViewModel.uploadProfilePicture(userManagementViewModel.userInformationState.value.profilePictureUrl.toUri())
                             },
                         )
                     }

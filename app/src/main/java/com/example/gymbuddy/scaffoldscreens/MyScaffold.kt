@@ -47,6 +47,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
@@ -161,7 +162,7 @@ fun DrawerContent(
     Spacer(modifier = Modifier.height(16.dp))
 
     Image(
-        painter = painterResource(R.drawable.default_profile_picture),
+        painter = rememberAsyncImagePainter(userInformationState.value.profilePictureUrl),
         contentDescription = "Profile picture",
         modifier = Modifier
             .size(90.dp)

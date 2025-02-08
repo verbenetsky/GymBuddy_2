@@ -1,7 +1,9 @@
 package com.example.gymbuddy.data.authentication
 
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.data.repository.CloudStorageRepositoryImpl
 import com.example.gymbuddy.data.repository.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
@@ -13,7 +15,8 @@ import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 
 class UserManagementViewModel(
-    private val userRepository: UserRepositoryImpl = UserRepositoryImpl()
+    private val userRepository: UserRepositoryImpl = UserRepositoryImpl(),
+    private val cloudStorageRepository: CloudStorageRepositoryImpl = CloudStorageRepositoryImpl()
 ) :
     ViewModel() {
 
@@ -131,7 +134,18 @@ class UserManagementViewModel(
                     }
             }
         }
+    }
 
+    fun addProfilePictureUrlToViewModel(url: android.net.Uri) {
+        _userInformationState.update { currentState ->
+            currentState.copy(profilePictureUrl = url.toString())
+        }
+    }
+
+    fun uploadProfilePicture(imageUri: android.net.Uri) {
+        viewModelScope.launch {
+            cloudStorageRepository.uploadImage(imageUri)
+        }
     }
 
     fun getUserFromFireStoreToViewModel() {

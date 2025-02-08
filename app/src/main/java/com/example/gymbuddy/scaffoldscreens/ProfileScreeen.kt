@@ -1,6 +1,14 @@
 package com.example.gymbuddy.scaffoldscreens
 
+import android.annotation.SuppressLint
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,23 +82,35 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.res.stringResource
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.datasource.SportsData.sports
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import android.net.Uri
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
+import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
+import com.example.gymbuddy.utils.CommonUtils
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
+import java.io.File
 
 @Composable
 fun ProfileScreen(
-    onImageClick: () -> Unit,
+    onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit,
     authState: SignInViewModel.AuthState,
     userManagementViewModel: UserManagementViewModel,
-    onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val userInformationState by userManagementViewModel.userInformationState.collectAsState()
@@ -99,6 +119,42 @@ fun ProfileScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showChipsDialog by remember { mutableStateOf(false) }
     var selectedHobbies by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showImageDialog by remember { mutableStateOf(false) }
+
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val context = LocalContext.current
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                imageUri = it
+                context.contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
+    )
+    if (imageUri != null) {
+        LaunchedEffect(imageUri) {
+            println("this")
+            userManagementViewModel.addProfilePictureUrlToViewModel(imageUri!!)
+        }
+    }
+
+    val dashLength = 50f
+    val gapLength = 50f
+
+    val infiniteTransition = rememberInfiniteTransition(label = "")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = dashLength + gapLength,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = ""
+    )
 
     if (authState == SignInViewModel.AuthState.Loading) {
         Box(
@@ -112,7 +168,7 @@ fun ProfileScreen(
     } else {
         Column {
             Card(
-                modifier = Modifier
+                modifier = modifier
                     .fillMaxWidth()
                     .padding(8.dp),
             ) {
@@ -129,18 +185,42 @@ fun ProfileScreen(
                         )
                     }
 
+
                     Image(
-                        painter = painterResource(R.drawable.default_profile_picture),
+                        painter = rememberAsyncImagePainter(userInformationState.profilePictureUrl),
                         contentDescription = "Profile picture",
                         modifier = Modifier
-                            .size(125.dp)
-                            .offset(y = (-10).dp)
+                            .size(150.dp)
+                            .offset(y = (-15).dp)
+                            .drawBehind {
+                                if (enableEdit) {
+                                    val strokeWidth = 2.dp.toPx()
+
+                                    val dashEffect = PathEffect.dashPathEffect(
+                                        intervals = floatArrayOf(dashLength, gapLength),
+                                        phase = phase
+                                    )
+                                    drawRoundRect(
+                                        color = Color.White,
+                                        size = size,
+                                        style = Stroke(
+                                            width = strokeWidth,
+                                            pathEffect = dashEffect
+                                        ),
+                                        cornerRadius = CornerRadius(0.dp.toPx(), 0.dp.toPx())
+                                    )
+                                }
+                            }
+                            .padding(6.dp)
                             .clip(CircleShape)
-                            .clickable { onImageClick() },
+                            .clickable {
+                                if (enableEdit) {
+                                    showImageDialog = true
+                                }
+                            },
                         contentScale = ContentScale.Crop,
                         alignment = Alignment.Center
                     )
-
 
                     Row(
                         modifier = Modifier
@@ -159,7 +239,27 @@ fun ProfileScreen(
                             colors = TextFieldDefaults.colors(
                                 disabledTextColor = Color.White,
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 2.dp.toPx()
+
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color.White,
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
+                                        )
+                                    }
+                                }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         OutlinedTextField(
@@ -176,30 +276,75 @@ fun ProfileScreen(
                                 textAlign = TextAlign.Center,
 
                                 ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 2.dp.toPx()
 
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color.White,
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
+                                        )
+                                    }
+                                }
                         )
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = "            @",
-                            style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
-                        )
-                        BasicTextField(
-                            value = userInformationState.username,
-                            onValueChange = { userManagementViewModel.updateUsername(it) },
-                            enabled = enableEdit,
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White),
-                        )
+                        Box {
+                            Row(modifier = Modifier
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 1.5.dp.toPx()
+
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color.White,
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(
+                                                5.dp.toPx(),
+                                                100.dp.toPx()
+                                            )
+                                        )
+                                    }
+                                }) {
+                                Text(
+                                    text = "            @",
+                                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                                )
+                                BasicTextField(
+                                    value = userInformationState.username,
+                                    onValueChange = { userManagementViewModel.updateUsername(it) },
+                                    enabled = enableEdit,
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White),
+                                )
+                            }
+                        }
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Card(
                         modifier = Modifier
                             .padding(start = 4.dp, end = 4.dp)
@@ -224,9 +369,7 @@ fun ProfileScreen(
                                     contentDescription = "Email Icon",
                                 )
                             },
-
                             label = { Text("Email") })
-
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -241,6 +384,27 @@ fun ProfileScreen(
                         enableEdit = enableEdit,
                         showDatePicker = showDatePicker,
                         onDismiss = { showDatePicker = false },
+                        modifier = Modifier
+                            .padding(start = 12.dp, end = 12.dp, bottom = 4.dp)
+                            .drawBehind {
+                                if (enableEdit) {
+                                    val strokeWidth = 2.dp.toPx()
+
+                                    val dashEffect = PathEffect.dashPathEffect(
+                                        intervals = floatArrayOf(dashLength, gapLength),
+                                        phase = phase
+                                    )
+                                    drawRoundRect(
+                                        color = Color.White,
+                                        size = size,
+                                        style = Stroke(
+                                            width = strokeWidth,
+                                            pathEffect = dashEffect
+                                        ),
+                                        cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
+                                    )
+                                }
+                            }
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -254,8 +418,27 @@ fun ProfileScreen(
                         TextField(
                             modifier = Modifier
                                 .offset(y = 1.dp)
-                                .padding(start = 8.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp)
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 2.dp.toPx()
+
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color.White,
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(8.dp.toPx(), 100.dp.toPx())
+                                        )
+                                    }
+                                },
                             value = userInformationState.hobbies.joinToString(", "),
                             readOnly = true,
                             singleLine = true,
@@ -263,6 +446,9 @@ fun ProfileScreen(
                             maxLines = 2,
                             colors = TextFieldDefaults.colors(
                                 disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                                disabledIndicatorColor = Color(0xFF462A00),
+                                focusedIndicatorColor = Color(0xFF462A00),
+                                unfocusedIndicatorColor = Color(0xFF462A00),
                             ),
 
                             leadingIcon = {
@@ -294,17 +480,40 @@ fun ProfileScreen(
                     ) {
 
                         TextField(
-                            modifier = Modifier
+                            modifier = modifier
                                 .fillMaxWidth()
                                 .offset(y = 1.dp)
-                                .padding(start = 8.dp),
+                                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp)
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 2.dp.toPx()
+
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color.White,
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(8.dp.toPx(), 100.dp.toPx())
+                                        )
+                                    }
+
+                                },
                             value = userInformationState.goal,
                             readOnly = !enableEdit,
-                            singleLine = true, // todo
+                            singleLine = true,
                             onValueChange = { userManagementViewModel.updateGoal(it) },
                             maxLines = 2,
                             colors = TextFieldDefaults.colors(
                                 disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                                disabledIndicatorColor = Color(0xFF462A00),
+                                focusedIndicatorColor = Color(0xFF462A00),
+                                unfocusedIndicatorColor = Color(0xFF462A00),
                             ),
                             leadingIcon = {
                                 Icon(
@@ -336,7 +545,6 @@ fun ProfileScreen(
                     enableEdit = false
                 })
 
-
             AlertDialogDeleteAccount(
                 dialogState = showDeleteDialog,
                 changeDialogState = { newValue -> showDeleteDialog = newValue },
@@ -350,6 +558,14 @@ fun ProfileScreen(
                     userManagementViewModel.updateHobbies(selectedList)
                 },
                 onChangeDialogState = { newValue -> showChipsDialog = newValue },
+            )
+
+            AlertDialogChangeImage(
+                showImageDialog = showImageDialog,
+                onConfirmButtonClickChangeImage = {
+                    openDocumentLauncher.launch(arrayOf("image/*"))
+                },
+                onChangeDialogState = { newValue -> showImageDialog = newValue }
             )
         }
     }
@@ -430,13 +646,11 @@ fun DateOfBirthManagement(
                     .padding(start = 4.dp)
                     .offset(y = (3).dp)
             )
-
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(
                 onClick = { onShowDatePickerChange(!showDatePicker) },
                 enabled = enableEdit,
-
-                ) { // todo
+            ) {
                 Icon(
                     imageVector = Icons.Filled.DateRange,
                     contentDescription = "Date Icon",
@@ -562,9 +776,7 @@ fun AlertDialogSelectChips(
 ) {
     if (showChipsDialog) {
         val selectedSports = remember { mutableStateListOf<String>() }
-        LaunchedEffect(selectedSports) {
-            println(selectedSports)
-        }
+
         val listSize = selectedSports.size
         AlertDialog(
             onDismissRequest = { onChangeDialogState(false) },
@@ -573,7 +785,7 @@ fun AlertDialogSelectChips(
             },
             text = {
                 FlowRow(
-                    modifier = Modifier
+                    modifier = modifier
                         .fillMaxWidth()
                         .padding(4.dp),
                     maxItemsInEachRow = 5,
@@ -636,6 +848,46 @@ fun AlertDialogSelectChips(
     }
 }
 
+@Composable
+fun AlertDialogChangeImage(
+    showImageDialog: Boolean,
+    onConfirmButtonClickChangeImage: () -> Unit,
+    onChangeDialogState: (Boolean) -> Unit,
+) {
+    if (showImageDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                onChangeDialogState(false)
+            },
+            title = {
+                Text(text = "Change Image")
+            },
+            text = {
+                Text("You sure you want to change your image?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onConfirmButtonClickChangeImage()
+                        onChangeDialogState(false)
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        onChangeDialogState(false)
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
 
 private fun checkSaveCondition(userInformationState: UserInformation): Boolean {
     return userInformationState.firstName.isNotEmpty() &&
@@ -644,3 +896,5 @@ private fun checkSaveCondition(userInformationState: UserInformation): Boolean {
             userInformationState.goal.isNotEmpty() &&
             userInformationState.hobbies.size >= 5
 }
+
+
