@@ -1,5 +1,7 @@
 package com.example.gymbuddy.data.authentication
 
+import android.app.Application
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -12,7 +14,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.regex.Pattern
 
-class SignInViewModel : ViewModel() {
+class SignInViewModel() :
+    ViewModel() {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -54,6 +57,21 @@ class SignInViewModel : ViewModel() {
         println(authState.value)
     }
 
+//    fun setAuthStatusInSharedPreferences(isRegistered: Boolean) {
+//        updateAuthState(AuthState.AuthenticatedButNotRegister)
+//        val userId = auth.currentUser?.uid
+//        sharedPreferencesRepository.setRegistrationStatus(userId ?: "", isRegistered)
+//    }
+//
+//    fun isRegistered(): Boolean {
+//        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return false
+//        return sharedPreferencesRepository.isRegistered(userId)
+//    }
+//
+//    fun printSharedPreferences() {
+//        println("SharedPref is:")
+//        sharedPreferencesRepository.printSharedPreferences()
+//    }
 
     fun signIn(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
@@ -130,7 +148,6 @@ class SignInViewModel : ViewModel() {
         _authState.value = AuthState.Unauthenticated
     }
 
-
     fun updateEmail(newEmail: String) {
         _userData.update { it.copy(email = newEmail) }
         _signInValidation.update { currentState ->
@@ -204,16 +221,8 @@ class SignInViewModel : ViewModel() {
         return 8 <= password.length
     }
 
-    fun updateAuthStateToUnauthenticated() {
-        _authState.value = AuthState.Unauthenticated
-    }
-
-    fun updateAuthStateToAuthenticated() {
-        _authState.value = AuthState.Authenticated
-    }
-
-    fun updateAuthStateToLoading() {
-        _authState.value = AuthState.Loading
+    fun updateAuthState(authState: AuthState) {
+        _authState.value = authState
     }
 
     private val emailPattern: Pattern = Pattern.compile(
@@ -235,6 +244,7 @@ class SignInViewModel : ViewModel() {
 
     sealed class AuthState {
         data object GoogleAuthenticated : AuthState()
+        data object AuthenticatedButNotRegister : AuthState()
         data object Authenticated : AuthState()
         data object Unauthenticated : AuthState()
         data object Loading : AuthState()

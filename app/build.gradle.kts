@@ -57,7 +57,6 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.google.services)
     implementation(libs.play.services.auth)
-    implementation(libs.firebase.firestore)
 
     implementation(libs.accompanist.systemuicontroller)
 
@@ -70,6 +69,8 @@ dependencies {
 
     //firebase storage
     implementation(libs.firebase.storage)
+
+    implementation(libs.androidx.material)
 
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)

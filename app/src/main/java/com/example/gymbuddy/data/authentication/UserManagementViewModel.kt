@@ -1,5 +1,6 @@
 package com.example.gymbuddy.data.authentication
 
+import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
@@ -20,12 +22,26 @@ class UserManagementViewModel(
 ) :
     ViewModel() {
 
-
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
 
     private val _userInformationState = MutableStateFlow(UserInformation())
-    val userInformationState: StateFlow<UserInformation> = _userInformationState
+    val userInformationState: StateFlow<UserInformation> = _userInformationState.asStateFlow()
+
+    private val _imageState = MutableStateFlow<ImageState>(ImageState.LoadedImage)
+    val imageState: StateFlow<ImageState> = _imageState.asStateFlow()
+
+    private val _usernameIsUsed = MutableStateFlow(false)
+    val usernameIsUsed: StateFlow<Boolean> = _usernameIsUsed.asStateFlow()
+
+    private val _bufferUserName: MutableStateFlow<String> = MutableStateFlow("")
+    val bufferUserName: StateFlow<String> = _bufferUserName.asStateFlow()
+
+    var oldUserName = ""
+
+    fun updateUsernameIsUsed(isUsed: Boolean) {
+        _usernameIsUsed.value = isUsed
+    }
 
     fun updateFirstName(firstName: String) {
         if (firstName.matches(lastAndFirstNamePattern.toRegex())) {
@@ -42,6 +58,12 @@ class UserManagementViewModel(
     fun updateUsername(username: String) {
         if (username.matches(usernamePattern.toRegex())) {
             _userInformationState.update { currentState -> currentState.copy(username = username) }
+        }
+    }
+
+    fun updateBufferUsername(username: String) {
+        if (username.matches(usernamePattern.toRegex())) {
+            _bufferUserName.value = username
         }
     }
 
@@ -136,15 +158,78 @@ class UserManagementViewModel(
         }
     }
 
-    fun addProfilePictureUrlToViewModel(url: android.net.Uri) {
+    fun addUsernameToDataBase(
+        username: String,
+        onSuccessfulUsernameAddition: () -> Unit,
+        onFailedUsernameAddition: () -> Unit,
+        onEmptyUsername: () -> Unit,
+    ) {
+        if (_bufferUserName.value == "") {
+            onEmptyUsername()
+            return
+        }
+
+        if (_bufferUserName.value != _userInformationState.value.username) {
+            viewModelScope.launch {
+                val result = userRepository.addUsernameToDataBase(username)
+                result.onSuccess {
+                    println("Username added successfully")
+                    updateUsernameIsUsed(false)
+                    deleteUsernameFromDataBase(oldUserName)
+                    onSuccessfulUsernameAddition()
+                }.onFailure { error ->
+                    println("Error adding username to database: ${error.message}")
+                    updateUsernameIsUsed(true)
+                    onFailedUsernameAddition()
+                }
+            }
+        }
+    }
+
+    fun updateToOldUsername() {
+        _userInformationState.update { currentState ->
+            currentState.copy(username = oldUserName)
+        }
+    }
+
+    fun deleteUsernameFromDataBase(username: String) {
+        viewModelScope.launch {
+            userRepository.deleteUsernameFromDataBase(username)
+        }
+    }
+
+    fun updateProfilePictureToDefault() {
+        _userInformationState.update { currentState ->
+            currentState.copy(profilePictureUrl = "")
+        }
+    }
+
+    private fun addProfilePictureUrlToViewModel(url: Uri) {
         _userInformationState.update { currentState ->
             currentState.copy(profilePictureUrl = url.toString())
         }
     }
 
-    fun uploadProfilePicture(imageUri: android.net.Uri) {
+    fun uploadProfilePicture(imageUri: Uri) {
+        if (imageUri != _userInformationState.value.profilePictureUrl.toUri()) {
+            viewModelScope.launch {
+                _imageState.value = ImageState.LoadingImage
+                val result = cloudStorageRepository.uploadImage(imageUri)
+                result.onSuccess { downloadUrl ->
+                    addProfilePictureUrlToViewModel(downloadUrl.toUri())
+                }.onFailure { error ->
+                    println("Error uploading image: ${error.message}")
+                }
+                _imageState.value = ImageState.LoadedImage
+            }
+        }
+    }
+
+
+    fun deleteProfilePicture(imageUri: Uri) {
+        if (userInformationState.value.profilePictureUrl == "") return
         viewModelScope.launch {
-            cloudStorageRepository.uploadImage(imageUri)
+            cloudStorageRepository.deleteImage(imageUri)
         }
     }
 
@@ -168,6 +253,11 @@ class UserManagementViewModel(
 
     private val lastAndFirstNamePattern: Pattern = Pattern.compile("^[a-zA-Z]*$")
     private val usernamePattern: Pattern = Pattern.compile("^[a-zA-Z0-9_.-]*$")
+
+    sealed class ImageState {
+        data object LoadedImage : ImageState()
+        data object LoadingImage : ImageState()
+    }
 
 }
 

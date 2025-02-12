@@ -39,6 +39,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,7 +66,6 @@ fun MyScaffold(
     onMessageClick: () -> Unit,
     onAboutClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    onImageClick: () -> Unit,
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit
@@ -80,7 +80,6 @@ fun MyScaffold(
         drawerContent = {
             ModalDrawerSheet {
                 DrawerContent(
-                    onImageClick = onImageClick,
                     onProfileClick = onProfileClick,
                     onFriendsClick = onFriendsClick,
                     onMyWorkoutsClick = onMyWorkoutsClick,
@@ -154,33 +153,31 @@ fun DrawerContent(
     onMessageClick: () -> Unit,
     onAboutClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    onImageClick: () -> Unit,
 ) {
-    val userInformationState = userManagementViewModel.userInformationState.collectAsState()
+    val userInformationState by userManagementViewModel.userInformationState.collectAsState()
     val scope = rememberCoroutineScope()
 
     Spacer(modifier = Modifier.height(16.dp))
 
     Image(
-        painter = rememberAsyncImagePainter(userInformationState.value.profilePictureUrl),
+        painter = if (userInformationState.profilePictureUrl != "") rememberAsyncImagePainter(
+            userInformationState.profilePictureUrl
+        ) else painterResource(id = R.drawable.default_profile_picture),
         contentDescription = "Profile picture",
         modifier = Modifier
             .size(90.dp)
             .padding(10.dp)
-            .clip(CircleShape)
-            .clickable {
-                onImageClick()
-            },
+            .clip(CircleShape),
         contentScale = ContentScale.Crop
     )
 
     Text(
-        text = userInformationState.value.firstName + " " + userInformationState.value.lastName,
+        text = userInformationState.firstName + " " + userInformationState.lastName,
         modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
         style = MaterialTheme.typography.displayMedium
     )
     Text(
-        text = "@" + userInformationState.value.username,
+        text = "@" + userInformationState.username,
         modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
         style = MaterialTheme.typography.titleSmall
     )

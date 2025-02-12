@@ -1,6 +1,5 @@
 package com.example.gymbuddy.scaffoldscreens
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -53,7 +51,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,7 +68,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.gymbuddy.R
@@ -95,15 +91,16 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import android.net.Uri
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.core.net.toUri
-import coil3.compose.AsyncImage
 import coil3.compose.rememberAsyncImagePainter
-import com.example.gymbuddy.utils.CommonUtils
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.ktx.storage
-import java.io.File
 
 @Composable
 fun ProfileScreen(
@@ -114,14 +111,19 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val userInformationState by userManagementViewModel.userInformationState.collectAsState()
+    val updateUsernameIsUsed by userManagementViewModel.usernameIsUsed.collectAsState()
+    val bufferUserName by userManagementViewModel.bufferUserName.collectAsState()
+
     var enableEdit by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showChipsDialog by remember { mutableStateOf(false) }
     var selectedHobbies by remember { mutableStateOf<List<String>>(emptyList()) }
+    var expandedMoreOptions by remember { mutableStateOf(false) }
     var showImageDialog by remember { mutableStateOf(false) }
 
     var imageUri by remember { mutableStateOf<Uri?>(null) }
+    val imageState by userManagementViewModel.imageState.collectAsState()
 
     val context = LocalContext.current
 
@@ -136,22 +138,30 @@ fun ProfileScreen(
             }
         }
     )
+
     if (imageUri != null) {
         LaunchedEffect(imageUri) {
-            println("this")
-            userManagementViewModel.addProfilePictureUrlToViewModel(imageUri!!)
+            userManagementViewModel.uploadProfilePicture(imageUri!!)
         }
     }
+    LaunchedEffect(Unit) {
+        userManagementViewModel.updateUsernameIsUsed(false)
+        userManagementViewModel.updateBufferUsername(userInformationState.username)
+    }
 
-    val dashLength = 50f
-    val gapLength = 50f
+    LaunchedEffect(userInformationState, bufferUserName) {
+        println(userInformationState)
+    }
+
+    val dashLength = 400f
+    val gapLength = 150f
 
     val infiniteTransition = rememberInfiniteTransition(label = "")
     val phase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = dashLength + gapLength,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900, easing = LinearEasing),
+            animation = tween(durationMillis = 3000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ), label = ""
     )
@@ -179,170 +189,215 @@ fun ProfileScreen(
                     Row {
                         Spacer(modifier = Modifier.weight(1f))
                         ActionButtons(
-                            { showDeleteDialog = true },
-                            { newValue -> enableEdit = newValue },
-                            enableEdit
+                            onEnableEditChange = {newValue -> enableEdit = newValue},
+                            enableEdit = enableEdit,
+                            onExpandedChange = { newValue -> expandedMoreOptions = newValue },
+                            expandedMoreOptions = expandedMoreOptions,
+                            onDeleteClick = {
+                                showDeleteDialog = true
+                            }
+
+
+//                            { showDeleteDialog = true },
+//                            { newValue -> enableEdit = newValue },
+//                            enableEdit,
+//                            onExpandedChange = { newValue -> expandedMoreOptions = newValue },
+//                            enableEdit = expandedMoreOptions
                         )
                     }
 
 
-                    Image(
-                        painter = rememberAsyncImagePainter(userInformationState.profilePictureUrl),
-                        contentDescription = "Profile picture",
-                        modifier = Modifier
-                            .size(150.dp)
-                            .offset(y = (-15).dp)
-                            .drawBehind {
-                                if (enableEdit) {
-                                    val strokeWidth = 2.dp.toPx()
+                    Box {
+                        Image(
+                            painter = if (userInformationState.profilePictureUrl != "") rememberAsyncImagePainter(
+                                userInformationState.profilePictureUrl
+                            ) else painterResource(id = R.drawable.default_profile_picture),
+                            contentDescription = "Profile picture",
+                            modifier = Modifier
+                                .size(150.dp)
+                                .offset(y = (-15).dp)
+                                .drawBehind {
+                                    if (enableEdit) {
+                                        val strokeWidth = 2.dp.toPx()
 
-                                    val dashEffect = PathEffect.dashPathEffect(
-                                        intervals = floatArrayOf(dashLength, gapLength),
-                                        phase = phase
-                                    )
-                                    drawRoundRect(
-                                        color = Color.White,
-                                        size = size,
-                                        style = Stroke(
-                                            width = strokeWidth,
-                                            pathEffect = dashEffect
-                                        ),
-                                        cornerRadius = CornerRadius(0.dp.toPx(), 0.dp.toPx())
-                                    )
+                                        val dashEffect = PathEffect.dashPathEffect(
+                                            intervals = floatArrayOf(dashLength, gapLength),
+                                            phase = phase
+                                        )
+                                        drawRoundRect(
+                                            color = Color(0xFFFFCA89),
+                                            size = size,
+                                            style = Stroke(
+                                                width = strokeWidth,
+                                                pathEffect = dashEffect
+                                            ),
+                                            cornerRadius = CornerRadius(0.dp.toPx(), 0.dp.toPx())
+                                        )
+                                    }
                                 }
-                            }
-                            .padding(6.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                if (enableEdit) {
-                                    showImageDialog = true
-                                }
-                            },
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.Center
-                    )
+                                .padding(6.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    if (enableEdit) {
+                                        showImageDialog = true
+                                    }
+                                },
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center
+                        )
+                        if (imageState == UserManagementViewModel.ImageState.LoadingImage) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        }
+                    }
 
-                    Row(
+                    Column(
                         modifier = Modifier
-                            .wrapContentWidth(Alignment.CenterHorizontally)
                             .padding(horizontal = 4.dp)
                     ) {
-                        OutlinedTextField(
-                            value = userInformationState.firstName,
-                            onValueChange = { userManagementViewModel.updateFirstName(it) },
-                            enabled = enableEdit,
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.appBarTitle.copy(
-                                fontSize = MaterialTheme.typography.appBarTitle.fontSize * 0.7,
-                                textAlign = TextAlign.Center,
-                            ),
-                            colors = TextFieldDefaults.colors(
-                                disabledTextColor = Color.White,
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .drawBehind {
-                                    if (enableEdit) {
-                                        val strokeWidth = 2.dp.toPx()
-
-                                        val dashEffect = PathEffect.dashPathEffect(
-                                            intervals = floatArrayOf(dashLength, gapLength),
-                                            phase = phase
-                                        )
-                                        drawRoundRect(
-                                            color = Color.White,
-                                            size = size,
-                                            style = Stroke(
-                                                width = strokeWidth,
-                                                pathEffect = dashEffect
-                                            ),
-                                            cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
-                                        )
-                                    }
-                                }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedTextField(
-                            value = userInformationState.lastName,
-                            onValueChange = { userManagementViewModel.updateLastName(it) },
-                            enabled = enableEdit,
-                            singleLine = true,
-                            colors = TextFieldDefaults.colors(
-                                disabledTextColor = Color.White,
-
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BasicTextField(
+                                value = userInformationState.firstName,
+                                onValueChange = { userManagementViewModel.updateFirstName(it) },
+                                enabled = enableEdit,
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.appBarTitle.copy(
+                                    fontSize = MaterialTheme.typography.appBarTitle.fontSize,
+                                    textAlign = TextAlign.Center,
+                                    color = Color.White
                                 ),
-                            textStyle = MaterialTheme.typography.appBarTitle.copy(
-                                fontSize = MaterialTheme.typography.appBarTitle.fontSize * 0.7,
-                                textAlign = TextAlign.Center,
-
-                                ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .drawBehind {
-                                    if (enableEdit) {
-                                        val strokeWidth = 2.dp.toPx()
-
-                                        val dashEffect = PathEffect.dashPathEffect(
-                                            intervals = floatArrayOf(dashLength, gapLength),
-                                            phase = phase
-                                        )
-                                        drawRoundRect(
-                                            color = Color.White,
-                                            size = size,
-                                            style = Stroke(
-                                                width = strokeWidth,
-                                                pathEffect = dashEffect
-                                            ),
-                                            cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
-                                        )
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 0.dp)
+                                    .drawBehind {
+                                        if (enableEdit) {
+                                            val strokeWidth = 2.dp.toPx()
+                                            val dashEffect = PathEffect.dashPathEffect(
+                                                intervals = floatArrayOf(dashLength, gapLength),
+                                                phase = phase
+                                            )
+                                            drawRoundRect(
+                                                color = Color.White,
+                                                size = size,
+                                                style = Stroke(
+                                                    width = strokeWidth,
+                                                    pathEffect = dashEffect
+                                                ),
+                                                cornerRadius = CornerRadius(
+                                                    5.dp.toPx(),
+                                                    100.dp.toPx()
+                                                )
+                                            )
+                                        }
                                     }
-                                }
-                        )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BasicTextField(
+                                value = userInformationState.lastName,
+                                onValueChange = { userManagementViewModel.updateLastName(it) },
+                                enabled = enableEdit,
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.appBarTitle.copy(
+                                    fontSize = MaterialTheme.typography.appBarTitle.fontSize,
+                                    textAlign = TextAlign.Center,
+                                    color = Color.White
+                                ),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 0.dp)
+                                    .drawBehind {
+                                        if (enableEdit) {
+                                            val strokeWidth = 2.dp.toPx()
+                                            val dashEffect = PathEffect.dashPathEffect(
+                                                intervals = floatArrayOf(dashLength, gapLength),
+                                                phase = phase
+                                            )
+                                            drawRoundRect(
+                                                color = Color.White,
+                                                size = size,
+                                                style = Stroke(
+                                                    width = strokeWidth,
+                                                    pathEffect = dashEffect
+                                                ),
+                                                cornerRadius = CornerRadius(
+                                                    5.dp.toPx(),
+                                                    100.dp.toPx()
+                                                )
+                                            )
+                                        }
+                                    }
+                            )
+                        }
                     }
-
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 8.dp)
+                            .wrapContentWidth(),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Box {
-                            Row(modifier = Modifier
-                                .drawBehind {
-                                    if (enableEdit) {
-                                        val strokeWidth = 1.5.dp.toPx()
-
-                                        val dashEffect = PathEffect.dashPathEffect(
-                                            intervals = floatArrayOf(dashLength, gapLength),
-                                            phase = phase
-                                        )
-                                        drawRoundRect(
-                                            color = Color.White,
-                                            size = size,
-                                            style = Stroke(
-                                                width = strokeWidth,
-                                                pathEffect = dashEffect
-                                            ),
-                                            cornerRadius = CornerRadius(
-                                                5.dp.toPx(),
-                                                100.dp.toPx()
+                        Box(
+                            modifier = Modifier.wrapContentSize()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .width(IntrinsicSize.Min)
+                                    .drawBehind {
+                                        if (enableEdit) {
+                                            val strokeWidth = 1.5.dp.toPx()
+                                            val dashEffect = PathEffect.dashPathEffect(
+                                                intervals = floatArrayOf(dashLength, gapLength),
+                                                phase = phase
                                             )
-                                        )
+                                            drawRoundRect(
+                                                color = Color.White,
+                                                size = size,
+                                                style = Stroke(
+                                                    width = strokeWidth,
+                                                    pathEffect = dashEffect
+                                                ),
+                                                cornerRadius = CornerRadius(
+                                                    5.dp.toPx(),
+                                                    100.dp.toPx()
+                                                )
+                                            )
+                                        }
                                     }
-                                }) {
+                            ) {
                                 Text(
-                                    text = "            @",
+                                    text = "@",
                                     style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
                                 )
                                 BasicTextField(
-                                    value = userInformationState.username,
-                                    onValueChange = { userManagementViewModel.updateUsername(it) },
+                                    modifier = Modifier
+                                        .wrapContentWidth()
+                                        .wrapContentHeight(),
+                                    value = bufferUserName,
+                                    onValueChange = {
+                                        userManagementViewModel.updateBufferUsername(
+                                            it
+                                        )
+                                    },
                                     enabled = enableEdit,
                                     singleLine = true,
-                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White),
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White)
                                 )
                             }
                         }
+                    }
+
+                    if (updateUsernameIsUsed) {
+                        Text(
+                            text = "Username is already used, try another one.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Card(
@@ -389,7 +444,6 @@ fun ProfileScreen(
                             .drawBehind {
                                 if (enableEdit) {
                                     val strokeWidth = 2.dp.toPx()
-
                                     val dashEffect = PathEffect.dashPathEffect(
                                         intervals = floatArrayOf(dashLength, gapLength),
                                         phase = phase
@@ -401,14 +455,12 @@ fun ProfileScreen(
                                             width = strokeWidth,
                                             pathEffect = dashEffect
                                         ),
-                                        cornerRadius = CornerRadius(5.dp.toPx(), 100.dp.toPx())
+                                        cornerRadius = CornerRadius(0.dp.toPx(), 0.dp.toPx())
                                     )
                                 }
                             }
                     )
-
                     Spacer(modifier = Modifier.height(4.dp))
-
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -541,6 +593,7 @@ fun ProfileScreen(
             SaveButtonSection(
                 enableEdit = enableEdit && checkSaveCondition(userInformationState),
                 onSaveClick = {
+                    userManagementViewModel.oldUserName = userInformationState.username
                     onSaveClick()
                     enableEdit = false
                 })
@@ -548,7 +601,10 @@ fun ProfileScreen(
             AlertDialogDeleteAccount(
                 dialogState = showDeleteDialog,
                 changeDialogState = { newValue -> showDeleteDialog = newValue },
-                onDeleteClick = { onDeleteClick() }
+                onDeleteClick = {
+                    onDeleteClick()
+                    expandedMoreOptions = false
+                }
             )
 
             AlertDialogSelectChips(
@@ -564,6 +620,8 @@ fun ProfileScreen(
                 showImageDialog = showImageDialog,
                 onConfirmButtonClickChangeImage = {
                     openDocumentLauncher.launch(arrayOf("image/*"))
+                    userManagementViewModel.deleteProfilePicture(userInformationState.profilePictureUrl.toUri())
+                    userManagementViewModel.updateProfilePictureToDefault()
                 },
                 onChangeDialogState = { newValue -> showImageDialog = newValue }
             )
@@ -574,12 +632,12 @@ fun ProfileScreen(
 
 @Composable
 fun ActionButtons(
-    onDeleteClick: () -> Unit,
     onEnableEditChange: (Boolean) -> Unit,
-    enableEdit: Boolean
+    enableEdit: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    expandedMoreOptions: Boolean,
+    onDeleteClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
     Row {
         IconButton(onClick = { onEnableEditChange(!enableEdit) }) {
             Icon(
@@ -587,12 +645,12 @@ fun ActionButtons(
                 contentDescription = "Edit Account"
             )
         }
-        IconButton(onClick = { expanded = !expanded }) {
+        IconButton(onClick = { onExpandedChange(!expandedMoreOptions) }) {
             Icon(Icons.Default.MoreVert, contentDescription = "More options")
         }
         DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
+            expanded = expandedMoreOptions,
+            onDismissRequest = { onExpandedChange(false) }
         ) {
             DropdownMenuItem(
                 text = { Text("Delete account") },
@@ -633,7 +691,7 @@ fun DateOfBirthManagement(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "    Date of birth:",
+                text = " Date of birth:",
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .offset(y = (3).dp)
@@ -863,7 +921,7 @@ fun AlertDialogChangeImage(
                 Text(text = "Change Image")
             },
             text = {
-                Text("You sure you want to change your image?")
+                Text("You sure you want to change your image?\nYour old image will be deleted.")
             },
             confirmButton = {
                 TextButton(
@@ -883,8 +941,9 @@ fun AlertDialogChangeImage(
                 ) {
                     Text("Cancel")
                 }
-            }
-        )
+            },
+
+            )
     }
 }
 

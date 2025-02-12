@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
@@ -41,17 +42,24 @@ fun NavGraph(
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
 ) {
-    NavHost(navController = navController, startDestination = "my_app") {
+    NavHost(navController = navController, startDestination = "sign_in") {
 
         composable("sign_in") {
             val state by signInViewModel.state.collectAsStateWithLifecycle()
-//            LaunchedEffect(authState) {
-//                if (authState == SignInViewModel.AuthState.Authenticated || authState == SignInViewModel.AuthState.GoogleAuthenticated) {
-//                    navController.navigate("my_app")
-//                } else {
-//                    navController.navigate("sign_in")
-//                }
-//            }
+
+            LaunchedEffect(authState) {
+                if (authState == SignInViewModel.AuthState.Authenticated ||
+                    authState == SignInViewModel.AuthState.GoogleAuthenticated
+                ) {
+                    if (navController.currentDestination?.route != "my_app") {
+                        navController.navigate("my_app")
+                    }
+                } else {
+                    if (navController.currentDestination?.route != "sign_in") {
+                        navController.navigate("sign_in")
+                    }
+                }
+            }
 
             val launcher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -148,6 +156,7 @@ fun NavGraph(
             SignUpScreen(
                 viewModel = signInViewModel,
                 onCreateAnAccountClick = {
+                    signInViewModel.updateAuthState(SignInViewModel.AuthState.AuthenticatedButNotRegister)
                     navController.navigate("registration")
                 },
                 onHaveAnAccountClick = {
@@ -161,12 +170,36 @@ fun NavGraph(
             RegistrationScreen(
                 userInformationViewModel = userManagementViewModel,
                 onContinueClick = {
-                    userManagementViewModel.transportUserInformation(
-                        signInViewModel.userData.value
+                    userManagementViewModel.addUsernameToDataBase(
+                        username = userManagementViewModel.userInformationState.value.username,
+                        onSuccessfulUsernameAddition = {
+                            Toast.makeText(
+                                applicationContext,
+                                "Information successfully added",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            navController.navigate("my_app")
+                            userManagementViewModel.transportUserInformation(
+                                signInViewModel.userData.value
+                            )
+                            userManagementViewModel.addUser()
+                            signInViewModel.updateAuthState(SignInViewModel.AuthState.Authenticated)
+                        },
+                        onFailedUsernameAddition = {
+                            Toast.makeText(
+                                applicationContext,
+                                "Username is already taken, try again",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onEmptyUsername = {
+                            Toast.makeText(
+                                applicationContext,
+                                "Username cannot be empty.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
                     )
-                    userManagementViewModel.addUser()
-                    navController.navigate("my_app")
-                    signInViewModel.updateAuthStateToAuthenticated()
                 },
                 viewModel = signInViewModel,
             )
@@ -174,6 +207,7 @@ fun NavGraph(
 
         composable("my_app") {
             val innerNavController = rememberNavController()
+            val context = LocalContext.current
 
             MyScaffold(
                 onProfileClick = { innerNavController.navigate("profile_screen") },
@@ -188,7 +222,6 @@ fun NavGraph(
                     userManagementViewModel.clearForm()
                     signInViewModel.clearUserData()
                 },
-                onImageClick = { /* obsługa kliknięcia obrazka */ },
                 onSearchClick = { /* obsługa wyszukiwania */ },
                 userManagementViewModel = userManagementViewModel,
             ) { innerPadding ->
@@ -200,21 +233,52 @@ fun NavGraph(
                     composable("profile_screen") {
                         ProfileScreen(
                             onDeleteClick = {
+                                signInViewModel.updateAuthState(SignInViewModel.AuthState.Loading)
                                 navController.navigate("sign_in")
-                                signInViewModel.updateAuthStateToLoading()
+                                userManagementViewModel.deleteUsernameFromDataBase(
+                                    userManagementViewModel.userInformationState.value.username
+                                )
                                 signInViewModel.deleteUser()
                                 signInViewModel.clearUserData()
-                                signInViewModel.updateAuthStateToUnauthenticated()
                                 userManagementViewModel.deleteUserDataFromFirestore()
                                 userManagementViewModel.clearForm()
+                                signInViewModel.updateAuthState(SignInViewModel.AuthState.Unauthenticated)
                             },
                             authState = authState,
                             userManagementViewModel = userManagementViewModel,
                             onSaveClick = {
-                                userManagementViewModel.updateUser(
-                                    userManagementViewModel.userInformationState.value
+                                userManagementViewModel.addUsernameToDataBase(
+                                    userManagementViewModel.bufferUserName.value,
+                                    onSuccessfulUsernameAddition = {
+                                        userManagementViewModel.updateUsername(
+                                            userManagementViewModel.bufferUserName.value
+                                        )
+                                        userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value)
+                                        userManagementViewModel.uploadProfilePicture(
+                                            userManagementViewModel.userInformationState.value.profilePictureUrl.toUri()
+                                        )
+                                        Toast.makeText(
+                                            context,
+                                            "Username successfully updated",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onFailedUsernameAddition = {
+                                        Toast.makeText(
+                                            context,
+                                            "Username already taken",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        userManagementViewModel.updateToOldUsername()
+                                    },
+                                    onEmptyUsername = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Username cannot be empty.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
                                 )
-                                userManagementViewModel.uploadProfilePicture(userManagementViewModel.userInformationState.value.profilePictureUrl.toUri())
                             },
                         )
                     }

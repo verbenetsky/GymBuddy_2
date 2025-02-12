@@ -24,6 +24,34 @@ class UserRepositoryImpl() : DatabaseRepository {
         }
     }
 
+    override suspend fun addUsernameToDataBase(username: String): Result<Boolean> {
+        return try {
+            db.runTransaction { transaction ->
+                val docRef = db.collection("usernames").document(username)
+                val snapshot = transaction.get(docRef)
+                if (snapshot.exists()) {
+                    throw Exception("Username already taken")
+                }
+                transaction.set(docRef, emptyMap<String, Any>())
+            }.await()
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteUsernameFromDataBase(username: String): Result<Boolean> {
+        return try {
+            db.collection("usernames")
+                .document(username)
+                .delete()
+                .await()
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun deleteUser(userId: String): Result<Boolean> {
         return try {
             db.collection("users")
@@ -44,7 +72,8 @@ class UserRepositoryImpl() : DatabaseRepository {
             val document = db.collection("users").document(userId).get().await()
             if (document.exists()) {
                 val userInfo = document.toObject(UserInformation::class.java)
-                userInfo?.let { Result.success(it) } ?: Result.failure(Exception("There is no data for this user"))
+                userInfo?.let { Result.success(it) }
+                    ?: Result.failure(Exception("There is no data for this user"))
             } else {
                 Result.failure(Exception("User not found"))
             }
@@ -52,4 +81,6 @@ class UserRepositoryImpl() : DatabaseRepository {
             Result.failure(e)
         }
     }
+
+
 }

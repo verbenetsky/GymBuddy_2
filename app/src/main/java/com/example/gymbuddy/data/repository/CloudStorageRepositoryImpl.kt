@@ -1,36 +1,57 @@
 package com.example.gymbuddy.data.repository
 
+import android.net.Uri
 import com.example.gymbuddy.repository.CloudStorageRepository
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
+import kotlinx.coroutines.tasks.await
 
 class CloudStorageRepositoryImpl : CloudStorageRepository {
 
     private val storageRef = Firebase.storage.reference
     private val user = Firebase.auth.currentUser
     private val userId = user?.uid
+    private val db = Firebase.firestore
 
-    override suspend fun uploadImage(imageUri: android.net.Uri): Result<Boolean> {
 
+    override suspend fun uploadImage(imageUri: Uri): Result<String> {
         return try {
             val localTime = System.currentTimeMillis()
-            val riversRef = storageRef.child("images/${localTime}_${userId}")
-            riversRef.putFile(imageUri)
-                .addOnFailureListener {
-                    println("Upload failed: ${it.message}")
-                }
-                .addOnSuccessListener {
-                    println("Upload succeeded!")
-                }
-            Result.success(true)
+            val imagePath = "images/${localTime}_${userId}"
+            val riversRef = storageRef.child(imagePath)
+
+            riversRef.putFile(imageUri).await()
+
+            val downloadUrl = riversRef.downloadUrl.await().toString()
+            println("Upload succeeded! Download URL: $downloadUrl")
+
+            if (userId != null) {
+                db.collection("users").document(userId)
+                    .update("profilePictureUrl", downloadUrl)
+                    .await()
+            }
+            Result.success(downloadUrl)
         } catch (e: Exception) {
+            println("Upload failed: ${e.message}")
             Result.failure(e)
         }
     }
 
-    override suspend fun deleteImage(imageUri: android.net.Uri): Result<Boolean> {
-        TODO("Not yet implemented")
+
+
+    override suspend fun deleteImage(imageUri: Uri): Result<Boolean> {
+        return try {
+            val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUri.toString())
+            fileRef.delete().await()
+            println("Delete succeeded!")
+            Result.success(true)
+        } catch (e: Exception) {
+            println("Delete failed: $e")
+            Result.failure(e)
+        }
     }
 
 

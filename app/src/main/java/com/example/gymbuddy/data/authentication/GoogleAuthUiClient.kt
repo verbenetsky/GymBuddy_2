@@ -3,7 +3,6 @@ package com.example.gymbuddy.data.authentication
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
-import androidx.compose.runtime.collectAsState
 import com.example.gymbuddy.R
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.SignInClient
