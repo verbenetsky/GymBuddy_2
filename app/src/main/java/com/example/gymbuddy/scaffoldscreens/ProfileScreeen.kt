@@ -106,6 +106,7 @@ import coil3.compose.rememberAsyncImagePainter
 fun ProfileScreen(
     onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onConfirmChangeImageClick: () -> Unit,
     authState: SignInViewModel.AuthState,
     userManagementViewModel: UserManagementViewModel,
     modifier: Modifier = Modifier
@@ -189,20 +190,13 @@ fun ProfileScreen(
                     Row {
                         Spacer(modifier = Modifier.weight(1f))
                         ActionButtons(
-                            onEnableEditChange = {newValue -> enableEdit = newValue},
+                            onEnableEditChange = { newValue -> enableEdit = newValue },
                             enableEdit = enableEdit,
                             onExpandedChange = { newValue -> expandedMoreOptions = newValue },
                             expandedMoreOptions = expandedMoreOptions,
                             onDeleteClick = {
                                 showDeleteDialog = true
                             }
-
-
-//                            { showDeleteDialog = true },
-//                            { newValue -> enableEdit = newValue },
-//                            enableEdit,
-//                            onExpandedChange = { newValue -> expandedMoreOptions = newValue },
-//                            enableEdit = expandedMoreOptions
                         )
                     }
 
@@ -620,8 +614,7 @@ fun ProfileScreen(
                 showImageDialog = showImageDialog,
                 onConfirmButtonClickChangeImage = {
                     openDocumentLauncher.launch(arrayOf("image/*"))
-                    userManagementViewModel.deleteProfilePicture(userInformationState.profilePictureUrl.toUri())
-                    userManagementViewModel.updateProfilePictureToDefault()
+                    onConfirmChangeImageClick()
                 },
                 onChangeDialogState = { newValue -> showImageDialog = newValue }
             )

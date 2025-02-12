@@ -226,7 +226,7 @@ class UserManagementViewModel(
     }
 
 
-    fun deleteProfilePicture(imageUri: Uri) {
+    fun deleteProfilePicture(imageUri: String) {
         if (userInformationState.value.profilePictureUrl == "") return
         viewModelScope.launch {
             cloudStorageRepository.deleteImage(imageUri)

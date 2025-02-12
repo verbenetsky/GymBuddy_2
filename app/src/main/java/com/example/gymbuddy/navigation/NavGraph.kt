@@ -23,13 +23,16 @@ import com.example.gymbuddy.presentation.RegistrationScreen
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.compose.rememberNavController
+import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
+import com.example.gymbuddy.scaffoldscreens.SearchScreen
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -38,6 +41,7 @@ fun NavGraph(
     navController: NavHostController,
     signInViewModel: SignInViewModel,
     userManagementViewModel: UserManagementViewModel,
+    userSearchViewModel: UserSearchViewModel,
     googleAuthUiClient: GoogleAuthUiClient,
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
@@ -215,6 +219,9 @@ fun NavGraph(
                 onMyWorkoutsClick = { /* obsługa kliknięcia */ },
                 onAIChatBotClick = { /* obsługa kliknięcia */ },
                 onMessageClick = { /* obsługa kliknięcia */ },
+                onBackArrowClick = {
+                    innerNavController.navigate("profile_screen")
+                },
                 onAboutClick = { innerNavController.navigate("about_screen") },
                 onLogoutClick = {
                     signInViewModel.logOut()
@@ -222,7 +229,8 @@ fun NavGraph(
                     userManagementViewModel.clearForm()
                     signInViewModel.clearUserData()
                 },
-                onSearchClick = { /* obsługa wyszukiwania */ },
+                innerNavController = innerNavController,
+                onSearchClick = { innerNavController.navigate("search_screen") },
                 userManagementViewModel = userManagementViewModel,
             ) { innerPadding ->
                 NavHost(
@@ -246,6 +254,11 @@ fun NavGraph(
                             },
                             authState = authState,
                             userManagementViewModel = userManagementViewModel,
+                            onConfirmChangeImageClick = {
+                                userManagementViewModel.deleteProfilePicture(userManagementViewModel.userInformationState.value.profilePictureUrl)
+                                userManagementViewModel.updateProfilePictureToDefault()
+                                userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value)
+                            },
                             onSaveClick = {
                                 userManagementViewModel.addUsernameToDataBase(
                                     userManagementViewModel.bufferUserName.value,
@@ -284,6 +297,24 @@ fun NavGraph(
                     }
                     composable("about_screen") {
                         AboutScreen()
+                    }
+                    composable("search_screen") {
+                        val userSearchState = userSearchViewModel.userSearchState.collectAsState()
+                        SearchScreen(
+                            userSearchState = userSearchState.value,
+                            onSearchClick = {
+                                userSearchViewModel.searchUser(
+                                    username = userSearchViewModel.searchQuery.value,
+                                    onSuccessSearch = {
+                                        userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.FoundUser)
+                                    },
+                                    onFailureSearch = {
+                                        userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.NothingFound)
+                                    }
+                                )
+                            },
+                            userSearchViewModel = userSearchViewModel,
+                        )
                     }
                 }
             }

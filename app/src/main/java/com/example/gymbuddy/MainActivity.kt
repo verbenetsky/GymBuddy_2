@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.data.authentication.GoogleAuthUiClient
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
+import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.navigation.NavGraph
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import com.google.android.gms.auth.api.identity.Identity
@@ -42,12 +43,14 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val signInViewModel: SignInViewModel = viewModel()
                     val userManagementViewModel: UserManagementViewModel = viewModel()
+                    val userSearchViewModel: UserSearchViewModel = viewModel()
                     val authState = signInViewModel.authState.collectAsStateWithLifecycle()
 
                     NavGraph(
                         navController = navController,
                         signInViewModel = signInViewModel,
                         userManagementViewModel = userManagementViewModel,
+                        userSearchViewModel = userSearchViewModel,
                         googleAuthUiClient = googleAuthUiClient,
                         lifecycleScope = lifecycleScope,
                         applicationContext = applicationContext,

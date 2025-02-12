@@ -42,9 +42,10 @@ class CloudStorageRepositoryImpl : CloudStorageRepository {
 
 
 
-    override suspend fun deleteImage(imageUri: Uri): Result<Boolean> {
+    override suspend fun deleteImage(imageUri: String): Result<Boolean> {
         return try {
-            val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUri.toString())
+            val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUri)
+            println(fileRef)
             fileRef.delete().await()
             println("Delete succeeded!")
             Result.success(true)

@@ -52,6 +52,18 @@ class UserRepositoryImpl() : DatabaseRepository {
         }
     }
 
+    override suspend fun searchUser(username: String): Result<List<UserInformation>> {
+        return try {
+            val querySnapshot = db.collection("users")
+                .whereEqualTo("username", username)
+                .get()
+                .await()
+            Result.success(querySnapshot.toObjects(UserInformation::class.java))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun deleteUser(userId: String): Result<Boolean> {
         return try {
             db.collection("users")

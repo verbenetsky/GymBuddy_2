@@ -8,4 +8,6 @@ interface DatabaseRepository {
     suspend fun getUser(userId: String): Result<UserInformation>
     suspend fun addUsernameToDataBase(username: String): Result<Boolean>
     suspend fun deleteUsernameFromDataBase(username: String): Result<Boolean>
+    suspend fun searchUser(username: String): Result<List<UserInformation>>
+
 }
