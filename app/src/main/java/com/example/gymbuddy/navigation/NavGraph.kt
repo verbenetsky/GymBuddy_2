@@ -29,7 +29,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
+import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.example.gymbuddy.scaffoldscreens.SearchScreen
@@ -41,6 +43,7 @@ fun NavGraph(
     navController: NavHostController,
     signInViewModel: SignInViewModel,
     userManagementViewModel: UserManagementViewModel,
+    friendRequestViewModel: FriendRequestViewModel,
     userSearchViewModel: UserSearchViewModel,
     googleAuthUiClient: GoogleAuthUiClient,
     lifecycleScope: LifecycleCoroutineScope,
@@ -141,6 +144,9 @@ fun NavGraph(
 //        }
 
         composable("sign_in_2") {
+            val password by signInViewModel.password.collectAsState()
+            val userData by signInViewModel.userData.collectAsState()
+
             SignInScreen2(
                 onForgetPasswordClick = { },
                 onDontHaveAnAccountClick = {
@@ -148,7 +154,26 @@ fun NavGraph(
                     signInViewModel.resetPassword()
                 },
                 viewModel = signInViewModel,
+                userManagementViewModel = userManagementViewModel,
+                friendRequestViewModel = friendRequestViewModel,
                 onEditClick = { navController.navigate("sign_in") },
+                onLogInClick = {
+                    signInViewModel.signIn(
+                        userData.email, password,
+                        onSuccess = {
+                            navController.navigate("my_app")
+                            userManagementViewModel.getUserFromFireStoreToViewModel()
+                        },
+                        onError = {
+                            Toast.makeText(
+                                applicationContext,
+                                "Wrong email or password",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+
+                },
                 onLoginSuccess = {
                     navController.navigate("my_app")
                     userManagementViewModel.getUserFromFireStoreToViewModel()
@@ -313,6 +338,21 @@ fun NavGraph(
                                     }
                                 )
                             },
+                            onProfileClick = { innerNavController.navigate("profile_screen") },
+                            onGuestProfileClick = { innerNavController.navigate("guess_profile_screen") },
+                            onSendRequestClick = {
+                                friendRequestViewModel.transferDataFromFoundUserToFriendRequest(
+                                    userSearchViewModel.userFoundInformation.value
+                                )
+                                friendRequestViewModel.sendFriendRequest()
+                            },
+                            friendRequestViewModel = friendRequestViewModel,
+                            userSearchViewModel = userSearchViewModel,
+                        )
+                    }
+                    composable("guess_profile_screen") {
+                        GuestProfileScreen(
+                            authState = authState,
                             userSearchViewModel = userSearchViewModel,
                         )
                     }

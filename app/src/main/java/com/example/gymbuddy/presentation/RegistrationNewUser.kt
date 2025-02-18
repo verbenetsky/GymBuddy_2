@@ -67,6 +67,11 @@ fun RegistrationScreen(
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val authState by viewModel.authState.collectAsStateWithLifecycle()
+    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
+
+    LaunchedEffect(userInformationState) {
+        println(userInformationState)
+    }
 
     if (authState == SignInViewModel.AuthState.Loading) {
         Box(

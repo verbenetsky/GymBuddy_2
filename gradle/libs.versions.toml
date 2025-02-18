@@ -3,6 +3,7 @@ accompanistSystemuicontroller = "0.30.1"
 agp = "8.7.3"
 coilNetworkOkhttp = "3.0.4"
 coilCompose = "3.0.4"
+converterMoshiVersion = "2.5.0"
 credentials = "1.5.0-rc01"
 kotlin = "2.1.0"
 coreKtx = "1.15.0"
@@ -15,10 +16,12 @@ composeBom = "2025.01.01"
 gms_services = "4.4.2"
 material = "1.7.7"
 materialIconsExtendedVersion = "1.5.1"
+moshi = "1.8.0"
 play_services_auth = "21.3.0"
 
 bom_firebase = "33.9.0"
 navigationCompose = "2.8.5"
+retrofitVersion = "2.9.0"
 
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
@@ -30,6 +33,8 @@ androidx-material = { module = "androidx.compose.material:material", version.ref
 androidx-material-icons-extended-v151 = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtendedVersion" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coilNetworkOkhttp" }
+converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshiVersion" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 firebase-storage = { module = "com.google.firebase:firebase-storage" }
 google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -55,11 +60,13 @@ firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 
 # Google Play Services Auth (dla Google Sign-In)
+moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "play_services_auth" }
 
 # Google Services Plugin
 google-services = { module = "com.google.gms:google-services", version.ref = "gms_services" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,4 +1,4 @@
-package com.example.gymbuddy.data.repository
+package com.example.gymbuddy.data.repositoryImpl
 
 import android.net.Uri
 import com.example.gymbuddy.repository.CloudStorageRepository

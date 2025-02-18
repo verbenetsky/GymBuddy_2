@@ -97,10 +97,13 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.core.net.toUri
 import coil3.compose.rememberAsyncImagePainter
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ProfileScreen(
@@ -139,6 +142,16 @@ fun ProfileScreen(
             }
         }
     )
+
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        scope.launch {
+            val x = FirebaseMessaging.getInstance().token.await()
+            println("token: $x")
+        }
+    }
+
+
 
     if (imageUri != null) {
         LaunchedEffect(imageUri) {
@@ -199,7 +212,6 @@ fun ProfileScreen(
                             }
                         )
                     }
-
 
                     Box {
                         Image(
@@ -620,8 +632,9 @@ fun ProfileScreen(
             )
         }
     }
-
 }
+
+
 
 @Composable
 fun ActionButtons(
@@ -655,7 +668,7 @@ fun ActionButtons(
 
 
 @Composable
-private fun formatDate(date: Long): String {
+fun formatDate(date: Long): String {
     val formattedDate = remember(date) {
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(
             Date(date)

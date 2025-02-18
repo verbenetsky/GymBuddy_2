@@ -2,6 +2,7 @@ package com.example.gymbuddy.data.authentication
 
 data class UserInformation(
     val userId: String = "",
+    val fcmToken: String = "",
     val email: String = "",
     val firstName: String = "",
     val lastName: String = "",

@@ -9,5 +9,10 @@ interface DatabaseRepository {
     suspend fun addUsernameToDataBase(username: String): Result<Boolean>
     suspend fun deleteUsernameFromDataBase(username: String): Result<Boolean>
     suspend fun searchUser(username: String): Result<List<UserInformation>>
-
+    suspend fun addFcmTokenToDataBase(
+        userId: String,
+        token: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    )
 }

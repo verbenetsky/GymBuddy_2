@@ -43,11 +43,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 
 @Composable
 fun SignInScreen2(
     viewModel: SignInViewModel,
     onDontHaveAnAccountClick: () -> Unit,
+    userManagementViewModel: UserManagementViewModel,
+    friendRequestViewModel: FriendRequestViewModel,
+    onLogInClick: () -> Unit,
     onForgetPasswordClick: () -> Unit,
     onEditClick: () -> Unit,
     onLoginSuccess: () -> Unit,
@@ -61,13 +65,6 @@ fun SignInScreen2(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val password by viewModel.password.collectAsState()
-
-
-    LaunchedEffect(key1 = authState) {
-        if (authState is SignInViewModel.AuthState.Authenticated) {
-            onLoginSuccess()
-        }
-    }
 
     LaunchedEffect(key1 = Unit) {
         keyboardController?.hide()
@@ -84,7 +81,6 @@ fun SignInScreen2(
             CircularProgressIndicator()
         }
     } else {
-
         Column(
             modifier = modifier
                 .fillMaxSize()
@@ -112,7 +108,7 @@ fun SignInScreen2(
 
             OutlinedTextField(
                 value = userData.email,
-                onValueChange = { /* Puste, bo email z poprzedniego kroku (readOnly) */ },
+                onValueChange = {},
                 label = { Text("Email address") },
                 leadingIcon = {
                     Icon(
@@ -177,8 +173,6 @@ fun SignInScreen2(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-
-
             Text(
                 text = stringResource(R.string.forgot_password),
                 style = MaterialTheme.typography.labelSmall,
@@ -187,23 +181,9 @@ fun SignInScreen2(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 2. Główna akcja LOGOWANIA:
             Button(
                 onClick = {
-                    // Wywołaj logowanie w ViewModelu
-                    viewModel.signIn(
-                        email = userData.email,
-                        password = password,
-                        onSuccess = {
-                            // Możesz tu zrobić jakąś dodatkową akcję
-                            // ale ogólnie i tak mamy LaunchedEffect, który nasłuchuje AuthState
-                        },
-                        onError = { errorMsg ->
-                            // Tutaj możesz np. pokazać Toast lub SnackBar
-                            // żeby poinformować użytkownika o błędzie
-                            println("Sign in error: $errorMsg")
-                        }
-                    )
+                    onLogInClick()
                 },
                 modifier = Modifier
                     .fillMaxWidth()

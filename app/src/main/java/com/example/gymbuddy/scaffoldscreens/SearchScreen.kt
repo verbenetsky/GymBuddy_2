@@ -11,8 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,18 +31,26 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun SearchScreen(
     userSearchState: UserSearchViewModel.UserSearchState,
     onSearchClick: () -> Unit,
+    onGuestProfileClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    friendRequestViewModel: FriendRequestViewModel,
+    onSendRequestClick: () -> Unit,
     userSearchViewModel: UserSearchViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -72,7 +85,12 @@ fun SearchScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (userSearchState == UserSearchViewModel.UserSearchState.FoundUser) {
-            SingleRecordOfSearch(userSearchViewModel)
+            SingleRecordOfSearch(
+                onProfileClick = onProfileClick,
+                onSendRequestClick = onSendRequestClick,
+                userSearchViewModel = userSearchViewModel,
+                onGuestProfileClick = onGuestProfileClick
+            )
         } else {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -96,38 +114,42 @@ fun SearchScreen(
 
 
 @Composable
-fun SingleRecordOfSearch(userSearchViewModel: UserSearchViewModel, modifier: Modifier = Modifier) {
-
+fun SingleRecordOfSearch(
+    onProfileClick: () -> Unit,
+    onSendRequestClick: () -> Unit,
+    onGuestProfileClick: () -> Unit,
+    userSearchViewModel: UserSearchViewModel,
+    modifier: Modifier = Modifier
+) {
     val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
+    val auth = FirebaseAuth.getInstance()
+    val userId = auth.currentUser?.uid
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .size(100.dp)
-            .clickable {
-
-            }
+            .size(125.dp)
     ) {
         Row(
             modifier = modifier
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
         ) {
             var painter = painterResource(id = R.drawable.default_profile_picture)
             if (userFoundInformation.profilePictureUrl.isNotEmpty()) {
                 painter = rememberAsyncImagePainter(userFoundInformation.profilePictureUrl)
             }
-            println(painter)
-
             Image(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier.size(100.dp)
+                modifier = Modifier.size(125.dp)
             )
-
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                Spacer(modifier = Modifier.weight(1f))
                 Row {
                     Text(
                         text = userFoundInformation.firstName,
@@ -148,6 +170,39 @@ fun SingleRecordOfSearch(userSearchViewModel: UserSearchViewModel, modifier: Mod
                         text = userFoundInformation.username,
                         style = MaterialTheme.typography.titleSmall.copy(fontSize = MaterialTheme.typography.titleSmall.fontSize * 1.1)
                     )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (userFoundInformation.userID != userId) {
+                        Button(
+                            onClick = { onSendRequestClick() },
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                Color(0x0F0D791C).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Text(text = "Send Request", fontSize = 13.sp, color = Color.White) // todo you are friends already
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Button(
+                        onClick = {
+                            if (userFoundInformation.userID == userId) {
+                                onProfileClick()
+                            } else
+                                onGuestProfileClick()
+                        },
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            Color(0xFF855305).copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Text(text = "See Profile", fontSize = 13.sp, color = Color.White)
+                    }
                 }
             }
         }

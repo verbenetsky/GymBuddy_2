@@ -1,0 +1,316 @@
+package com.example.gymbuddy.scaffoldscreens
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.rememberAsyncImagePainter
+import com.example.gymbuddy.R
+import com.example.gymbuddy.data.UserFoundInformation
+import com.example.gymbuddy.data.authentication.SignInViewModel
+import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.ui.theme.appBarTitle
+
+@Composable
+fun GuestProfileScreen(
+    authState: SignInViewModel.AuthState,
+    userSearchViewModel: UserSearchViewModel,
+    modifier: Modifier = Modifier
+) {
+    val userFoundInformationState by userSearchViewModel.userFoundInformation.collectAsState()
+
+    if (authState == SignInViewModel.AuthState.Loading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else {
+        Column {
+            Card(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Box {
+                        Image(
+                            painter = if (userFoundInformationState.profilePictureUrl != "") rememberAsyncImagePainter(
+                                userFoundInformationState.profilePictureUrl
+                            ) else painterResource(id = R.drawable.default_profile_picture),
+                            contentDescription = "Profile picture",
+                            modifier = Modifier
+                                .size(150.dp)
+                                .offset(y = (-15).dp)
+                                .padding(6.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center
+                        )
+                    }
+
+
+                    Text(
+                        "${userFoundInformationState.firstName} ${userFoundInformationState.lastName}",
+                        style = MaterialTheme.typography.appBarTitle.copy(color = Color.White),
+                        fontSize = MaterialTheme.typography.appBarTitle.fontSize,
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .wrapContentWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier.wrapContentSize()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .width(IntrinsicSize.Min),
+                            ) {
+                                Text(
+                                    text = "@",
+                                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                                )
+                                BasicTextField(
+                                    modifier = Modifier
+                                        .wrapContentWidth()
+                                        .wrapContentHeight(),
+                                    value = userFoundInformationState.username,
+                                    onValueChange = {},
+                                    enabled = false,
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp)
+                    ) {
+                        Button(
+                            onClick = {},
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            shape = RoundedCornerShape(4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                Color(0x0F0D791C).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Text(text = "Send Friend Request", color = Color.White) //todo
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {},
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            shape = RoundedCornerShape(4.dp),
+                            enabled = false, // todo
+                        ) {
+                            Text(text = "Send Message")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier
+                            .padding(start = 4.dp, end = 4.dp)
+                            .fillMaxWidth()
+                    ) {
+                        TextField(
+                            modifier = Modifier
+                                .offset(y = 1.dp)
+                                .padding(start = 8.dp),
+                            value = userFoundInformationState.email,
+                            enabled = false,
+                            singleLine = true,
+                            onValueChange = { },
+                            textStyle = MaterialTheme.typography.titleMedium,
+
+                            colors = TextFieldDefaults.colors(
+                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                            ),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Email,
+                                    contentDescription = "Email Icon",
+                                )
+                            },
+                            label = { Text("Email") })
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    DateOfBirthInformationGuess(
+                        userFoundInformationState, modifier = Modifier
+                            .padding(start = 12.dp, end = 12.dp, bottom = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, end = 4.dp)
+                    ) {
+                        TextField(
+                            modifier = Modifier
+                                .offset(y = 1.dp)
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+                            value = userFoundInformationState.hobbies.joinToString(", "),
+                            readOnly = true,
+                            singleLine = true,
+                            onValueChange = {},
+                            maxLines = 2,
+                            colors = TextFieldDefaults.colors(
+                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                                disabledIndicatorColor = Color(0xFF462A00),
+                                focusedIndicatorColor = Color(0xFF462A00),
+                                unfocusedIndicatorColor = Color(0xFF462A00),
+                            ),
+
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.FitnessCenter,
+                                    contentDescription = "Email Icon"
+                                )
+                            },
+                            label = { Text("Hobbies:") })
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, end = 4.dp)
+                    ) {
+
+                        TextField(
+                            modifier = modifier
+                                .fillMaxWidth()
+                                .offset(y = 1.dp)
+                                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+                            value = userFoundInformationState.goal,
+                            readOnly = true,
+                            singleLine = true,
+                            onValueChange = {},
+                            maxLines = 2,
+                            colors = TextFieldDefaults.colors(
+                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                                disabledIndicatorColor = Color(0xFF462A00),
+                                focusedIndicatorColor = Color(0xFF462A00),
+                                unfocusedIndicatorColor = Color(0xFF462A00),
+                            ),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Email Icon"
+                                )
+                            },
+
+                            label = { Text("Goal:") })
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DateOfBirthInformationGuess(
+    userFoundInformationState: UserFoundInformation,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = " Date of birth:",
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .offset(y = (3).dp)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+
+            Text(
+                text = formatDate(userFoundInformationState.dateOfBirth),
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .offset(y = (3).dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}

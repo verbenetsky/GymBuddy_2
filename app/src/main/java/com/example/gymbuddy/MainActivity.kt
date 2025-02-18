@@ -1,5 +1,6 @@
 package com.example.gymbuddy
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -17,9 +19,12 @@ import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.navigation.NavGraph
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import com.google.android.gms.auth.api.identity.Identity
-
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
 
 class MainActivity : ComponentActivity() {
 
@@ -32,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestNotificationPermission()
         enableEdgeToEdge()
         setContent {
             GymBuddyTheme {
@@ -44,6 +50,7 @@ class MainActivity : ComponentActivity() {
                     val signInViewModel: SignInViewModel = viewModel()
                     val userManagementViewModel: UserManagementViewModel = viewModel()
                     val userSearchViewModel: UserSearchViewModel = viewModel()
+                    val friendRequestViewModel: FriendRequestViewModel = viewModel()
                     val authState = signInViewModel.authState.collectAsStateWithLifecycle()
 
                     NavGraph(
@@ -53,10 +60,27 @@ class MainActivity : ComponentActivity() {
                         userSearchViewModel = userSearchViewModel,
                         googleAuthUiClient = googleAuthUiClient,
                         lifecycleScope = lifecycleScope,
+                        friendRequestViewModel = friendRequestViewModel,
                         applicationContext = applicationContext,
                         authState = authState.value
                     )
                 }
+            }
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0
+                )
             }
         }
     }

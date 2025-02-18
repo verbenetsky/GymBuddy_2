@@ -1,13 +1,9 @@
 package com.example.gymbuddy.data.authentication
 
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.data.repository.UserRepositoryImpl
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +39,14 @@ class UserSearchViewModel(
         }
     }
 
+    private fun updateUserIDOfFoundUser(userID: String) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                userID = userID
+            )
+        }
+    }
+
     private fun updateUsernameOfFoundUser(username: String) {
         _userFoundInformation.update { currentState ->
             currentState.copy(
@@ -55,6 +59,46 @@ class UserSearchViewModel(
         _userFoundInformation.update { currentState ->
             currentState.copy(
                 profilePictureUrl = profilePictureUrl
+            )
+        }
+    }
+
+    private fun updateEmailOfFoundUser(email: String) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                email = email
+            )
+        }
+    }
+
+    private fun updateDateOfBirthOfFoundUser(dateOfBirth: Long) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                dateOfBirth = dateOfBirth
+            )
+        }
+    }
+
+    private fun updateHobbiesOfFoundUser(hobbies: List<String>) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                hobbies = hobbies
+            )
+        }
+    }
+
+    private fun updateGoalOfFoundUser(goal: String) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                goal = goal
+            )
+        }
+    }
+
+    private fun updateFcmTokenOfFoundUser(token: String) {
+        _userFoundInformation.update { currentState ->
+            currentState.copy(
+                fcmToken = token
             )
         }
     }
@@ -91,6 +135,12 @@ class UserSearchViewModel(
                     updateLastNameOfFoundUser(userList[0].lastName)
                     updateUsernameOfFoundUser(userList[0].username)
                     updateProfilePictureUrlOfFoundUser(userList[0].profilePictureUrl)
+                    updateUserIDOfFoundUser(userList[0].userId)
+                    updateEmailOfFoundUser(userList[0].email)
+                    updateDateOfBirthOfFoundUser(userList[0].dateOfBirth)
+                    updateHobbiesOfFoundUser(userList[0].hobbies)
+                    updateGoalOfFoundUser(userList[0].goal)
+                    updateFcmTokenOfFoundUser(userList[0].fcmToken)
                     println("Success: found ${userList.size} user(s)")
                 }
             }

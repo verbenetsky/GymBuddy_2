@@ -4,11 +4,12 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gymbuddy.data.repository.CloudStorageRepositoryImpl
-import com.example.gymbuddy.data.repository.UserRepositoryImpl
+import com.example.gymbuddy.data.repositoryImpl.CloudStorageRepositoryImpl
+import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +19,7 @@ import java.util.regex.Pattern
 
 class UserManagementViewModel(
     private val userRepository: UserRepositoryImpl = UserRepositoryImpl(),
-    private val cloudStorageRepository: CloudStorageRepositoryImpl = CloudStorageRepositoryImpl()
+    private val cloudStorageRepository: CloudStorageRepositoryImpl = CloudStorageRepositoryImpl(),
 ) :
     ViewModel() {
 
@@ -118,6 +119,7 @@ class UserManagementViewModel(
                 hobbies = userInformation.hobbies,
                 goal = userInformation.goal,
                 email = userInformation.email,
+                fcmToken = userInformation.fcmToken,
                 profilePictureUrl = userInformation.profilePictureUrl,
                 dateOfBirth = userInformation.dateOfBirth,
             )
@@ -164,7 +166,7 @@ class UserManagementViewModel(
         onFailedUsernameAddition: () -> Unit,
         onEmptyUsername: () -> Unit,
     ) {
-        if (_bufferUserName.value == "") {
+        if (_bufferUserName.value == "" && _userInformationState.value.username == "") { // todo
             onEmptyUsername()
             return
         }
@@ -225,11 +227,15 @@ class UserManagementViewModel(
         }
     }
 
-
     fun deleteProfilePicture(imageUri: String) {
         if (userInformationState.value.profilePictureUrl == "") return
         viewModelScope.launch {
             cloudStorageRepository.deleteImage(imageUri)
+        }
+    }
+    fun updateUserFcmToken(token: String) {
+        _userInformationState.update { currentState ->
+            currentState.copy(fcmToken = token)
         }
     }
 
@@ -244,6 +250,24 @@ class UserManagementViewModel(
                             updateUserInformation(userInformation)
                         }
                     }
+                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                            if (!task.isSuccessful) {
+                                println("Fetching FCM registration token failed: ${task.exception}")
+                                return@addOnCompleteListener
+                            }
+                            val token = task.result
+                            println("token: $token")
+                            updateUserFcmToken(token)
+
+                            viewModelScope.launch {
+                                userRepository.addFcmTokenToDataBase(
+                                    userId = userId,
+                                    token = token,
+                                    onSuccess = { println("token added successfully") },
+                                    onFailure = { exception -> println("Error adding token: $exception") }
+                                )
+                            }
+                        }
                 }.addOnFailureListener { exception ->
                     println("Error getting user data: $exception")
                 }

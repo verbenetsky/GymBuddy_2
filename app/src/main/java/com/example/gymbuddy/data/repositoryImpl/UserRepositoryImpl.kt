@@ -1,4 +1,4 @@
-package com.example.gymbuddy.data.repository
+package com.example.gymbuddy.data.repositoryImpl
 
 import com.example.gymbuddy.data.authentication.UserInformation
 import com.example.gymbuddy.repository.DatabaseRepository
@@ -62,6 +62,19 @@ class UserRepositoryImpl() : DatabaseRepository {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    override suspend fun addFcmTokenToDataBase(
+        userId: String,
+        token: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        db.collection("users")
+            .document(userId)
+            .update("fcmToken", token)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure(it) }
     }
 
     override suspend fun deleteUser(userId: String): Result<Boolean> {
