@@ -28,20 +28,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.navigation.compose.rememberNavController
+import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
+import com.example.gymbuddy.scaffoldscreens.MyFriendsScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.example.gymbuddy.scaffoldscreens.SearchScreen
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 @Composable
 fun NavGraph(
     authState: SignInViewModel.AuthState,
     navController: NavHostController,
     signInViewModel: SignInViewModel,
+    buttonStateManager: ButtonStateManager,
     userManagementViewModel: UserManagementViewModel,
     friendRequestViewModel: FriendRequestViewModel,
     userSearchViewModel: UserSearchViewModel,
@@ -50,6 +54,7 @@ fun NavGraph(
     applicationContext: Context
 ) {
     NavHost(navController = navController, startDestination = "sign_in") {
+        val currentUser = Firebase.auth.currentUser?.uid ?: "non"
 
         composable("sign_in") {
             val state by signInViewModel.state.collectAsStateWithLifecycle()
@@ -240,7 +245,11 @@ fun NavGraph(
 
             MyScaffold(
                 onProfileClick = { innerNavController.navigate("profile_screen") },
-                onFriendsClick = { /* obsługa kliknięcia */ },
+                onFriendsClick = {
+                    friendRequestViewModel.fetchAllFriendRequestsAndFullInformation(currentUser)
+                    friendRequestViewModel.getAllFriend(currentUser)
+                    innerNavController.navigate("my_friends")
+                },
                 onMyWorkoutsClick = { /* obsługa kliknięcia */ },
                 onAIChatBotClick = { /* obsługa kliknięcia */ },
                 onMessageClick = { /* obsługa kliknięcia */ },
@@ -255,7 +264,9 @@ fun NavGraph(
                     signInViewModel.clearUserData()
                 },
                 innerNavController = innerNavController,
-                onSearchClick = { innerNavController.navigate("search_screen") },
+                onSearchClick = {
+                    innerNavController.navigate("search_screen")
+                },
                 userManagementViewModel = userManagementViewModel,
             ) { innerPadding ->
                 NavHost(
@@ -325,6 +336,7 @@ fun NavGraph(
                     }
                     composable("search_screen") {
                         val userSearchState = userSearchViewModel.userSearchState.collectAsState()
+                        val userFoundInformation = userSearchViewModel.userFoundInformation.collectAsState()
                         SearchScreen(
                             userSearchState = userSearchState.value,
                             onSearchClick = {
@@ -332,6 +344,12 @@ fun NavGraph(
                                     username = userSearchViewModel.searchQuery.value,
                                     onSuccessSearch = {
                                         userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.FoundUser)
+                                        friendRequestViewModel.determineButtonState(
+                                            userSearchViewModel.userFoundInformation.value.userId,
+                                            onSuccess = {
+
+                                            }
+                                        )
                                     },
                                     onFailureSearch = {
                                         userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.NothingFound)
@@ -344,16 +362,256 @@ fun NavGraph(
                                 friendRequestViewModel.transferDataFromFoundUserToFriendRequest(
                                     userSearchViewModel.userFoundInformation.value
                                 )
-                                friendRequestViewModel.sendFriendRequest()
+                                friendRequestViewModel.sendFriendRequestToUser()
+                                lifecycleScope.launch {
+                                    friendRequestViewModel.addFriendRequestToDatabase(
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                applicationContext,
+                                                "Request has been sent.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        onFailure = {
+                                            Toast.makeText(
+                                                applicationContext,
+                                                "Something went wrong.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
+                                }
                             },
-                            friendRequestViewModel = friendRequestViewModel,
+                            buttonStateManager = buttonStateManager,
                             userSearchViewModel = userSearchViewModel,
+                            onDeclineClick = {
+                                friendRequestViewModel.deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
+                                    currentUserId = currentUser,
+                                    friendId = userFoundInformation.value.userId,
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                userSearchViewModel.searchUser(
+                                    username = userSearchViewModel.searchQuery.value,
+                                    onSuccessSearch = {
+                                        userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.FoundUser)
+                                        friendRequestViewModel.determineButtonState(
+                                            userSearchViewModel.userFoundInformation.value.userId,
+                                            onSuccess = {
+
+                                            }
+                                        )
+                                    },
+                                    onFailureSearch = {
+                                        userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.NothingFound)
+                                    }
+                                )
+                            },
+                            onRemoveClick = {
+                                friendRequestViewModel.deleteFriend(
+                                    currentUser,
+                                    userFoundInformation.value.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have removed a friend.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                userSearchViewModel.clearUserFoundInformation()
+                                userSearchViewModel.updateSearchState(UserSearchViewModel.UserSearchState.NothingFound)
+                            }
                         )
                     }
                     composable("guess_profile_screen") {
+                        val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
                         GuestProfileScreen(
                             authState = authState,
                             userSearchViewModel = userSearchViewModel,
+                            friendRequestViewModel = friendRequestViewModel,
+                            onSendMessageClick = {
+                                Toast.makeText(
+                                    applicationContext,
+                                    "Only friends can send messages.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+
+                            onRemoveFriendClick = {
+                                friendRequestViewModel.deleteFriend(
+                                    currentUser,
+                                    userFoundInformation.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have removed a friend.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                innerNavController.navigate("profile_screen")
+                            },
+                            onDeclineClick = {
+                                friendRequestViewModel.deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
+                                    currentUserId = currentUser,
+                                    friendId = userFoundInformation.userId,
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                innerNavController.navigate("profile_screen")
+                            },
+                            onAcceptClick = {
+                                friendRequestViewModel.addFriendsInformationToDatabase(
+                                    currentUserId = Firebase.auth.currentUser!!.uid,
+                                    friendId = userFoundInformation.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have got a new friend!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        innerNavController.navigate("my_friends")
+                                    },
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                friendRequestViewModel.deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
+                                    currentUserId = Firebase.auth.currentUser!!.uid,
+                                    friendId = userFoundInformation.userId,
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                                friendRequestViewModel.getAllFriend(currentUser)
+                            },
+                            onSendFriendRequestClick = {
+                                friendRequestViewModel.transferDataFromFoundUserToFriendRequest(
+                                    userSearchViewModel.userFoundInformation.value
+                                )
+                                friendRequestViewModel.sendFriendRequestToUser()
+                                lifecycleScope.launch {
+                                    friendRequestViewModel.addFriendRequestToDatabase(
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                applicationContext,
+                                                "Request has been sent.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        onFailure = {
+                                            Toast.makeText(
+                                                applicationContext,
+                                                "Something went wrong.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    composable("my_friends") {
+                        MyFriendsScreen(
+                            friendRequestViewModel = friendRequestViewModel,
+                            onAcceptClick = {
+                                friendRequestViewModel.addFriendsInformationToDatabase(
+                                    currentUserId = Firebase.auth.currentUser!!.uid,
+                                    friendId = it.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have got a new friend!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                friendRequestViewModel.deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
+                                    currentUserId = Firebase.auth.currentUser!!.uid,
+                                    friendId = it.userId,
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                                friendRequestViewModel.getAllFriend(currentUser)
+                            },
+                            onSeeProfileClick = { userId ->
+                                userSearchViewModel.getUserBasedOnUserId(userId,
+                                    onSuccess = {
+                                        friendRequestViewModel.determineButtonState(
+                                            userId,
+                                            onSuccess = {
+                                                innerNavController.navigate("guess_profile_screen")
+                                            })
+                                    })
+                            },
+                            onDeclineClick = {
+                                friendRequestViewModel.deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
+                                    currentUserId = Firebase.auth.currentUser!!.uid,
+                                    friendId = it.userId,
+                                    onFailure = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "Something gone wrong, try again!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have declined friend request.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                            },
+                            onRemoveFriendClick = { friend ->
+                                friendRequestViewModel.deleteFriend(
+                                    currentUser,
+                                    friend.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "You have removed a friend.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                )
+                                friendRequestViewModel.getAllFriend(currentUser)
+
+                            },
                         )
                     }
                 }

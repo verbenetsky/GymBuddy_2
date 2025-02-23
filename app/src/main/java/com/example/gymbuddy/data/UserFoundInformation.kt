@@ -1,7 +1,7 @@
 package com.example.gymbuddy.data
 
 data class UserFoundInformation(
-    val userID: String = "",
+    val userId: String = "",
     val fcmToken: String = "",
     val firstName: String = "",
     val lastName: String = "",

@@ -1,6 +1,8 @@
 package com.example.gymbuddy.data.repositoryImpl
 
+import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserInformation
+import com.example.gymbuddy.friends.FriendRequestInformationDto
 import com.example.gymbuddy.repository.DatabaseRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
@@ -52,17 +54,18 @@ class UserRepositoryImpl() : DatabaseRepository {
         }
     }
 
-    override suspend fun searchUser(username: String): Result<List<UserInformation>> {
+    override suspend fun searchUser(username: String): Result<List<UserFoundInformation>> {
         return try {
             val querySnapshot = db.collection("users")
                 .whereEqualTo("username", username)
                 .get()
                 .await()
-            Result.success(querySnapshot.toObjects(UserInformation::class.java))
+            Result.success(querySnapshot.toObjects(UserFoundInformation::class.java))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
 
     override suspend fun addFcmTokenToDataBase(
         userId: String,
@@ -92,12 +95,17 @@ class UserRepositoryImpl() : DatabaseRepository {
         }
     }
 
-    override suspend fun getUser(userId: String): Result<UserInformation> {
+    override suspend fun getUser(userId: String): Result<UserFoundInformation> {
         return try {
-            val document = db.collection("users").document(userId).get().await()
+            val document = db.collection("users")
+                .document(userId)
+                .get()
+                .await()
             if (document.exists()) {
-                val userInfo = document.toObject(UserInformation::class.java)
-                userInfo?.let { Result.success(it) }
+                val userInfo = document.toObject(UserFoundInformation::class.java)
+                userInfo?.let {
+                    Result.success(it)
+                }
                     ?: Result.failure(Exception("There is no data for this user"))
             } else {
                 Result.failure(Exception("User not found"))

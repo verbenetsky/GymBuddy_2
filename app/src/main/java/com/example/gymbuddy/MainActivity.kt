@@ -25,6 +25,7 @@ import com.google.android.gms.auth.api.identity.Identity
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import com.example.gymbuddy.buttonState.ButtonStateManager
 
 class MainActivity : ComponentActivity() {
 
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     val userSearchViewModel: UserSearchViewModel = viewModel()
                     val friendRequestViewModel: FriendRequestViewModel = viewModel()
                     val authState = signInViewModel.authState.collectAsStateWithLifecycle()
+                    val buttonStateManager = ButtonStateManager
 
                     NavGraph(
                         navController = navController,
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope = lifecycleScope,
                         friendRequestViewModel = friendRequestViewModel,
                         applicationContext = applicationContext,
+                        buttonStateManager = buttonStateManager,
                         authState = authState.value
                     )
                 }

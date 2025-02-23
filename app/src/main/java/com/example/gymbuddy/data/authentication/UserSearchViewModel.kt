@@ -2,8 +2,10 @@ package com.example.gymbuddy.data.authentication
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +24,10 @@ class UserSearchViewModel(
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    fun clearUserFoundInformation() {
+        _userFoundInformation.value = UserFoundInformation()
+    }
 
     private fun updateFirstNameOfFoundUser(firstName: String) {
         _userFoundInformation.update { currentState ->
@@ -42,7 +48,7 @@ class UserSearchViewModel(
     private fun updateUserIDOfFoundUser(userID: String) {
         _userFoundInformation.update { currentState ->
             currentState.copy(
-                userID = userID
+                userId = userID
             )
         }
     }
@@ -103,12 +109,31 @@ class UserSearchViewModel(
         }
     }
 
-    fun resetUserFoundInformation() {
-        _userFoundInformation.value = UserFoundInformation()
+    private fun updateUserFoundInfo(userFoundInformation: UserFoundInformation) {
+        _userFoundInformation.value = userFoundInformation
+    }
+
+    fun getUserBasedOnUserId(userId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val result = userRepository.getUser(userId)
+                if (result.isSuccess) {
+                    val doc = result.getOrNull() ?: UserFoundInformation()
+                    updateUserFoundInfo(doc)
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun updateUserSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
     }
 
     fun updateSearchState(state: UserSearchState) {
@@ -130,12 +155,12 @@ class UserSearchViewModel(
                     onFailureSearch()
                     println("Failure: search returned empty list")
                 } else {
+                    updateUserIDOfFoundUser(userList[0].userId)
                     onSuccessSearch()
                     updateFirstNameOfFoundUser(userList[0].firstName)
                     updateLastNameOfFoundUser(userList[0].lastName)
                     updateUsernameOfFoundUser(userList[0].username)
                     updateProfilePictureUrlOfFoundUser(userList[0].profilePictureUrl)
-                    updateUserIDOfFoundUser(userList[0].userId)
                     updateEmailOfFoundUser(userList[0].email)
                     updateDateOfBirthOfFoundUser(userList[0].dateOfBirth)
                     updateHobbiesOfFoundUser(userList[0].hobbies)

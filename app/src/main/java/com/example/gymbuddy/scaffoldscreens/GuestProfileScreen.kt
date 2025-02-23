@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,52 +24,77 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 
+
+// poprawic ui jak szukamy uzytkownika z ktorej juz jestesmy friends bo w tej chwili
+// jak znajdziemy takiego to
 @Composable
 fun GuestProfileScreen(
+    onSendFriendRequestClick: () -> Unit,
+    onRemoveFriendClick: (UserFoundInformation) -> Unit,
+    onDeclineClick: () -> Unit,
+    onAcceptClick: () -> Unit,
     authState: SignInViewModel.AuthState,
     userSearchViewModel: UserSearchViewModel,
+    onSendMessageClick: () -> Unit,
+    friendRequestViewModel: FriendRequestViewModel,
     modifier: Modifier = Modifier
 ) {
     val userFoundInformationState by userSearchViewModel.userFoundInformation.collectAsState()
+    val buttonState by friendRequestViewModel.buttonState.collectAsState()
+    var buttonStateExpanded by remember { mutableStateOf(buttonState) }
+    var alertDialogState by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        println(buttonState)
+        println(userFoundInformationState)
+    }
+
+    when (buttonState) {
+        "Send Request" -> {
+            buttonStateExpanded = "Send Friend Request"
+        }
+
+        "Request Sent" -> {
+            buttonStateExpanded = "Request has been sent"
+        }
+
+        "Send Message" -> {
+            buttonStateExpanded = "Remove"
+        }
+    }
 
     if (authState == SignInViewModel.AuthState.Loading) {
         Box(
@@ -108,14 +133,11 @@ fun GuestProfileScreen(
                             alignment = Alignment.Center
                         )
                     }
-
-
                     Text(
                         "${userFoundInformationState.firstName} ${userFoundInformationState.lastName}",
                         style = MaterialTheme.typography.appBarTitle.copy(color = Color.White),
                         fontSize = MaterialTheme.typography.appBarTitle.fontSize,
                     )
-
                     Row(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -152,30 +174,67 @@ fun GuestProfileScreen(
                             .padding(start = 8.dp, end = 8.dp)
                     ) {
                         Button(
-                            onClick = {},
+                            onClick = {
+                                when (buttonStateExpanded) {
+                                    "Remove" -> {
+                                        alertDialogState = true
+                                    }
+
+                                    "Send Request" -> {
+                                        onSendFriendRequestClick()
+                                        buttonStateExpanded = "Request has been sent"
+                                    }
+
+                                    "Decline" -> onDeclineClick()
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .weight(if (buttonStateExpanded != "Decline") 2f else 1f),
+                            enabled = buttonStateExpanded != "Request has been sent",
                             shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                Color(0x0F0D791C).copy(alpha = 0.5f)
+                                if (buttonStateExpanded == "Remove" || buttonStateExpanded == "Decline")
+                                    Color(0xFFD31212).copy(alpha = 0.7f)
+                                else
+                                    Color(0x0F0D791C).copy(alpha = 0.5f)
                             )
                         ) {
-                            Text(text = "Send Friend Request", color = Color.White) //todo
+                            Text(text = buttonStateExpanded, color = Color.White) //todo
+                        }
+                        if (buttonStateExpanded == "Decline") {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    onAcceptClick()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                shape = RoundedCornerShape(4.dp),
+                                contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    Color(0xFF198D29)
+                                )
+                            ) {
+                                Text(text = "Accept", color = Color.White) //todo
+                            }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
-                            onClick = {},
+                            onClick = { onSendMessageClick() },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .weight(2f),
                             shape = RoundedCornerShape(4.dp),
-                            enabled = false, // todo
                         ) {
                             Text(text = "Send Message")
                         }
                     }
+
                     Spacer(modifier = Modifier.height(8.dp))
+
                     Card(
                         modifier = Modifier
                             .padding(start = 4.dp, end = 4.dp)
@@ -232,7 +291,6 @@ fun GuestProfileScreen(
                                 focusedIndicatorColor = Color(0xFF462A00),
                                 unfocusedIndicatorColor = Color(0xFF462A00),
                             ),
-
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.FitnessCenter,
@@ -249,7 +307,6 @@ fun GuestProfileScreen(
                             .fillMaxWidth()
                             .padding(start = 4.dp, end = 4.dp)
                     ) {
-
                         TextField(
                             modifier = modifier
                                 .fillMaxWidth()
@@ -272,15 +329,19 @@ fun GuestProfileScreen(
                                     contentDescription = "Email Icon"
                                 )
                             },
-
                             label = { Text("Goal:") })
                     }
-
                     Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
     }
+    AlertDialogDeleteFriend(
+        dialogState = alertDialogState,
+        changeDialogState = { newValue -> alertDialogState = newValue },
+        onRemoveFriendClick = { onRemoveFriendClick(userFoundInformationState) },
+        userFoundInformation = userFoundInformationState
+    )
 }
 
 @Composable

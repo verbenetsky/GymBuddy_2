@@ -1,7 +1,10 @@
 package com.example.gymbuddy.friends
 
 data class FriendRequestInformationDto(
-    var receiverId: String = "",
+    val receiverFcmToken: String = "",
+    val receiverId: String = "",
+    val senderId: String = "",
+    val status: SendingRequestStatus = SendingRequestStatus.PENDING,
 )
 
 enum class SendingRequestStatus {
@@ -9,3 +12,8 @@ enum class SendingRequestStatus {
     ACCEPTED,
     REJECTED
 }
+
+data class FriendInformation(
+    val friendId: String = "",
+    val dateOfCreationOfFriendShip: Long = 0,
+)

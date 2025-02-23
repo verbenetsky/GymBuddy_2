@@ -11,8 +11,3 @@ interface FcmApi {
         @Body message: FriendRequestInformationDto
     )
 }
-
-//    @POST("/broadcast") // endpoint do wysyłania wiadomości grupie userow
-//    suspend fun broadcast(
-//        @Body body: SendMessageDto
-//    )

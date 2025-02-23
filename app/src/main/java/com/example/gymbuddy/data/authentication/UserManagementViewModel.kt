@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.CloudStorageRepositoryImpl
 import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
@@ -91,6 +92,7 @@ class UserManagementViewModel(
     init {
         getUserFromFireStoreToViewModel()
     }
+
 
 
     fun transportUserInformation(userData: UserData) {
@@ -233,6 +235,7 @@ class UserManagementViewModel(
             cloudStorageRepository.deleteImage(imageUri)
         }
     }
+
     fun updateUserFcmToken(token: String) {
         _userInformationState.update { currentState ->
             currentState.copy(fcmToken = token)
@@ -250,30 +253,32 @@ class UserManagementViewModel(
                             updateUserInformation(userInformation)
                         }
                     }
-                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                            if (!task.isSuccessful) {
-                                println("Fetching FCM registration token failed: ${task.exception}")
-                                return@addOnCompleteListener
-                            }
-                            val token = task.result
-                            println("token: $token")
-                            updateUserFcmToken(token)
-
-                            viewModelScope.launch {
-                                userRepository.addFcmTokenToDataBase(
-                                    userId = userId,
-                                    token = token,
-                                    onSuccess = { println("token added successfully") },
-                                    onFailure = { exception -> println("Error adding token: $exception") }
-                                )
-                            }
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (!task.isSuccessful) {
+                            println("Fetching FCM registration token failed: ${task.exception}")
+                            return@addOnCompleteListener
                         }
+                        val token = task.result
+                        println("token: $token")
+                        updateUserFcmToken(token)
+
+                        viewModelScope.launch {
+                            userRepository.addFcmTokenToDataBase(
+                                userId = userId,
+                                token = token,
+                                onSuccess = { println("token added successfully") },
+                                onFailure = { exception -> println("Error adding token: $exception") }
+                            )
+                        }
+                    }
                 }.addOnFailureListener { exception ->
                     println("Error getting user data: $exception")
                 }
             }
         }
     }
+
+
 
     private val lastAndFirstNamePattern: Pattern = Pattern.compile("^[a-zA-Z]*$")
     private val usernamePattern: Pattern = Pattern.compile("^[a-zA-Z0-9_.-]*$")
