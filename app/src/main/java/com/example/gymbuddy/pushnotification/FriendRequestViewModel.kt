@@ -201,43 +201,9 @@ class FriendRequestViewModel(
         }
     }
 
-//    // todo sprawdzic czy u wyszukanego usera w kolekcji friendsRequest jest dokument o nazwie currentUserId
-//    // todo dziala prawie idealnie, jest lekkie opoznienie w zmianie stanu przycisku, kiedys do tego wroce
-//    fun determineButtonState(searchedUserId: String) {
-//        viewModelScope.launch {
-//            try {
-//                val result = friendRequestRepository.determineButtonState(
-//                    searchedUserId
-//                )
-//                if (result.isSuccess) {
-//                    val hasDocument = result.getOrNull() ?: false
-//                    if (hasDocument) {
-//                        buttonStateManager.updateState("Request Sent")
-//                    } else {
-//                        checkFriendShipStatus(searchedUserId)
-//                    }
-//                }
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//            }
-//        }
-//    }
-//
-//    // todo dziala ale podczas odswiezania to na ktora chwile widzimy Send Request a dopiero potem Send Message
-//    private fun checkFriendShipStatus(searchedUserId: String) {
-//        viewModelScope.launch {
-//            try {
-//                val result = friendRequestRepository.checkFriendShip(searchedUserId)
-//                if (result.getOrNull() == true) {
-//                    buttonStateManager.updateState("Send Message")
-//                } else {
-//                    buttonStateManager.updateState("Send Request")
-//                }
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//            }
-//        }
-//    }
+   // todo sprawdzic czy u wyszukanego usera w kolekcji friendsRequest jest dokument o nazwie currentUserId
+    // todo dziala prawie idealnie, jest lekkie opoznienie w zmianie stanu przycisku, kiedys do tego wroce
+ // todo dziala ale podczas odswiezania to na ktora chwile widzimy Send Request a dopiero potem Send Message
 
     // tutaj bedzie cala logika sprawdzania stanu przycisku
     fun determineButtonState(friendId: String, onSuccess: () -> Unit) {

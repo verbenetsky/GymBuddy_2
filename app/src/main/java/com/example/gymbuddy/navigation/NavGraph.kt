@@ -27,12 +27,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
+import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.gymbuddy.buttonState.ButtonStateManager
+import com.example.gymbuddy.channel.ChannelViewModel
+import com.example.gymbuddy.chat.ChatScreen
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
 import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
+import com.example.gymbuddy.scaffoldscreens.MessagesScreen
 import com.example.gymbuddy.scaffoldscreens.MyFriendsScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
@@ -252,7 +257,7 @@ fun NavGraph(
                 },
                 onMyWorkoutsClick = { /* obsługa kliknięcia */ },
                 onAIChatBotClick = { /* obsługa kliknięcia */ },
-                onMessageClick = { /* obsługa kliknięcia */ },
+                onMessageClick = { innerNavController.navigate("message_screen") },
                 onBackArrowClick = {
                     innerNavController.navigate("profile_screen")
                 },
@@ -263,6 +268,7 @@ fun NavGraph(
                     userManagementViewModel.clearForm()
                     signInViewModel.clearUserData()
                 },
+                onFloatingActionButtonClick = { }, //todo
                 innerNavController = innerNavController,
                 onSearchClick = {
                     innerNavController.navigate("search_screen")
@@ -336,7 +342,8 @@ fun NavGraph(
                     }
                     composable("search_screen") {
                         val userSearchState = userSearchViewModel.userSearchState.collectAsState()
-                        val userFoundInformation = userSearchViewModel.userFoundInformation.collectAsState()
+                        val userFoundInformation =
+                            userSearchViewModel.userFoundInformation.collectAsState()
                         SearchScreen(
                             userSearchState = userSearchState.value,
                             onSearchClick = {
@@ -612,6 +619,23 @@ fun NavGraph(
                                 friendRequestViewModel.getAllFriend(currentUser)
 
                             },
+                        )
+                    }
+                    composable(route = "message_screen") {
+                        MessagesScreen(
+                            innerNavController = innerNavController,
+                        )
+                    }
+
+                    composable(
+                        route = "chat/{channelId}", arguments = listOf(
+                            navArgument("channelId") { type = NavType.StringType })
+                    )
+                    { backStackEntry ->
+                        val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
+                        ChatScreen(
+                            userManagementViewModel = userManagementViewModel,
+                            channelID = channelId,
                         )
                     }
                 }

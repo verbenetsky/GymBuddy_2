@@ -57,9 +57,6 @@ import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 
-
-// poprawic ui jak szukamy uzytkownika z ktorej juz jestesmy friends bo w tej chwili
-// jak znajdziemy takiego to
 @Composable
 fun GuestProfileScreen(
     onSendFriendRequestClick: () -> Unit,
@@ -180,7 +177,7 @@ fun GuestProfileScreen(
                                         alertDialogState = true
                                     }
 
-                                    "Send Request" -> {
+                                    "Send Friend Request" -> {
                                         onSendFriendRequestClick()
                                         buttonStateExpanded = "Request has been sent"
                                     }
@@ -201,7 +198,7 @@ fun GuestProfileScreen(
                                     Color(0x0F0D791C).copy(alpha = 0.5f)
                             )
                         ) {
-                            Text(text = buttonStateExpanded, color = Color.White) //todo
+                            Text(text = buttonStateExpanded, color = Color.White)
                         }
                         if (buttonStateExpanded == "Decline") {
                             Spacer(modifier = Modifier.width(8.dp))
@@ -218,7 +215,7 @@ fun GuestProfileScreen(
                                     Color(0xFF198D29)
                                 )
                             ) {
-                                Text(text = "Accept", color = Color.White) //todo
+                                Text(text = "Accept", color = Color.White)
                             }
                         }
                         Spacer(modifier = Modifier.width(8.dp))

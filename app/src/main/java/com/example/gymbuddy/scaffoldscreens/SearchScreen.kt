@@ -45,10 +45,8 @@ import com.example.gymbuddy.R
 import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
-import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun SearchScreen(
