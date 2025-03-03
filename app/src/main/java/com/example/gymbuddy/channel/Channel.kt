@@ -2,6 +2,8 @@ package com.example.gymbuddy.channel
 
 data class Channel(
     val id: String = "",
-    val name: String,
-    val createdAt: Long = System.currentTimeMillis()
+    val firstFriendId: String = "",
+    val secondFriendId: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val lastMessage: String = "",
 )

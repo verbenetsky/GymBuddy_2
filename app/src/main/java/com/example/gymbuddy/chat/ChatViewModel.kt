@@ -1,10 +1,12 @@
 package com.example.gymbuddy.chat
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,11 +15,48 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor() : ViewModel() {
+
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val message = _messages.asStateFlow()
     private val db = Firebase.firestore
 
-    fun sendMessage(channelID: String, messageText: String, senderUsername: String) {
+    fun sendImageMessage(
+        uri: Uri,
+        channelID: String,
+        senderUsername: String
+    ) {
+        val imageRef =
+            Firebase.storage.reference.child("images/chat/$channelID/${UUID.randomUUID()}")
+        imageRef.putFile(uri)
+            .continueWithTask { task ->
+                if (!task.isSuccessful) {
+                    task.exception?.let {
+                        throw it
+                    }
+                }
+                imageRef.downloadUrl
+            }.addOnCompleteListener { task ->
+                val docRef = db.collection("messages").document()
+                if (task.isSuccessful) {
+                    val downloadUri = task.result
+                    sendMessage(
+                        channelID = channelID,
+                        messageText = null,
+                        senderUsername = senderUsername,
+                        image = downloadUri.toString()
+                    )
+
+                }
+            }
+    }
+
+
+    fun sendMessage(
+        channelID: String,
+        messageText: String?,
+        image: String? = null,
+        senderUsername: String,
+    ) {
         val docRef = db.collection("messages").document()
 
         val message = Message(
@@ -27,16 +66,67 @@ class ChatViewModel @Inject constructor() : ViewModel() {
             channelId = channelID,
             createdAt = System.currentTimeMillis().toString(),
             senderName = senderUsername,
-            imageUrl = null,
+            imageUrl = image,
             senderImage = null
         )
         docRef.set(message)
             .addOnSuccessListener {
+                updateLastMessage(channelID, messageText ?: "")
                 println("Message sent with ID: ${docRef.id}")
             }
             .addOnFailureListener {
                 println("Error sending message: $it")
             }
+    }
+
+    // usuwamy wszystkie wiadomosci i wyslane zdjecia dla konkretnego kanalu
+    fun deleteAllMessagesForParticularChat(channelID: String) {
+        db.collection("messages")
+            .whereEqualTo("channelId", channelID)
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val batch = db.batch()
+                for (document in querySnapshot) {
+                    batch.delete(document.reference)
+                }
+                batch.commit()
+                    .addOnSuccessListener {
+                        println("All documents have been deleted.")
+                        deleteAllImagesForParticularChat(channelID)
+                    }
+                    .addOnFailureListener { e ->
+                        println("During deleting documents an error occurred: $e")
+                    }
+            }
+            .addOnFailureListener {
+                println("Error fetching data: $it")
+            }
+    }
+
+    private fun deleteAllImagesForParticularChat(channelID: String) {
+        val directoryRef = Firebase.storage.reference.child("images/chat/$channelID")
+
+        directoryRef.listAll() // listAll() zwraca wszystkie pliki znajdujece sie w tym folderze
+            .addOnSuccessListener { listResult ->
+                listResult.items.forEach { fileRef ->
+                    fileRef.delete()
+                        .addOnSuccessListener {
+                            println("Deleted: $it")
+                        }
+                        .addOnFailureListener { e ->
+                            println("Error deleting file: $e")
+                        }
+                }
+            }
+            .addOnFailureListener { exception ->
+                println("Error listing files: $exception")
+            }
+    }
+
+    private fun updateLastMessage(channelId: String, lastMessage: String) {
+        db.collection("channels")
+            .document(channelId)
+            .update("lastMessage", lastMessage)
     }
 
     fun listenForMessages(channelID: String) {

@@ -19,14 +19,12 @@ import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.navigation.NavGraph
-import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import com.google.android.gms.auth.api.identity.Identity
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import com.example.gymbuddy.buttonState.ButtonStateManager
-import com.example.gymbuddy.channel.ChannelViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -54,7 +52,6 @@ class MainActivity : ComponentActivity() {
                     val signInViewModel: SignInViewModel = viewModel()
                     val userManagementViewModel: UserManagementViewModel = viewModel()
                     val userSearchViewModel: UserSearchViewModel = viewModel()
-                    val friendRequestViewModel: FriendRequestViewModel = viewModel()
                     val authState = signInViewModel.authState.collectAsStateWithLifecycle()
                     val buttonStateManager = ButtonStateManager
 
@@ -65,7 +62,6 @@ class MainActivity : ComponentActivity() {
                         userSearchViewModel = userSearchViewModel,
                         googleAuthUiClient = googleAuthUiClient,
                         lifecycleScope = lifecycleScope,
-                        friendRequestViewModel = friendRequestViewModel,
                         applicationContext = applicationContext,
                         buttonStateManager = buttonStateManager,
                         authState = authState.value

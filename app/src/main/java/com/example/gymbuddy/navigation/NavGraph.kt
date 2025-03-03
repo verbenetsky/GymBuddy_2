@@ -27,11 +27,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.gymbuddy.buttonState.ButtonStateManager
-import com.example.gymbuddy.channel.ChannelViewModel
 import com.example.gymbuddy.chat.ChatScreen
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
@@ -52,7 +52,7 @@ fun NavGraph(
     signInViewModel: SignInViewModel,
     buttonStateManager: ButtonStateManager,
     userManagementViewModel: UserManagementViewModel,
-    friendRequestViewModel: FriendRequestViewModel,
+    friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
     userSearchViewModel: UserSearchViewModel,
     googleAuthUiClient: GoogleAuthUiClient,
     lifecycleScope: LifecycleCoroutineScope,
@@ -629,13 +629,15 @@ fun NavGraph(
 
                     composable(
                         route = "chat/{channelId}", arguments = listOf(
-                            navArgument("channelId") { type = NavType.StringType })
+                            navArgument("channelId") { type = NavType.StringType },
+                        )
                     )
                     { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
                         ChatScreen(
                             userManagementViewModel = userManagementViewModel,
                             channelID = channelId,
+                            innerNavController = innerNavController,
                         )
                     }
                 }

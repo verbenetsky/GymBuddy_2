@@ -7,6 +7,5 @@ import dagger.hilt.android.HiltAndroidApp
 class GymBuddyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Dodatkowa inicjalizacja, jeśli potrzebna
     }
 }

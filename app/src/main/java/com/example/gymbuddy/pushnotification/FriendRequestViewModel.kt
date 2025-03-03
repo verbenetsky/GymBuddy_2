@@ -10,6 +10,11 @@ import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
 import com.example.gymbuddy.friends.FriendInformation
 import com.example.gymbuddy.friends.FriendRequestInformationDto
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,10 +25,14 @@ import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.create
+import dagger.Module
+import dagger.Provides
+import javax.inject.Inject
 
-class FriendRequestViewModel(
-    private val friendRequestRepository: FriendRequestRepositoryImpl = FriendRequestRepositoryImpl(),
-    private val buttonStateManager: ButtonStateManager = ButtonStateManager
+@HiltViewModel
+class FriendRequestViewModel @Inject constructor(
+    private val friendRequestRepository: FriendRequestRepositoryImpl,
+    private val buttonStateManager: ButtonStateManager
 ) : ViewModel() {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -50,6 +59,15 @@ class FriendRequestViewModel(
 
     private val _friendInformation = MutableStateFlow(FriendInformation())
     val friendInformation: StateFlow<FriendInformation> = _friendInformation.asStateFlow()
+
+    init {
+        Firebase.auth.currentUser?.uid?.let { uid ->
+            getAllFriend(uid)
+        } ?: run {
+            Log.e("FriendRequestViewModel", "Brak zalogowanego użytkownika")
+        }
+    }
+
 
     private val api: FcmApi = Retrofit.Builder()
         .baseUrl("http://10.0.2.2:8080/")
@@ -201,9 +219,8 @@ class FriendRequestViewModel(
         }
     }
 
-   // todo sprawdzic czy u wyszukanego usera w kolekcji friendsRequest jest dokument o nazwie currentUserId
     // todo dziala prawie idealnie, jest lekkie opoznienie w zmianie stanu przycisku, kiedys do tego wroce
- // todo dziala ale podczas odswiezania to na ktora chwile widzimy Send Request a dopiero potem Send Message
+    // todo dziala ale podczas odswiezania to na ktora chwile widzimy Send Request a dopiero potem Send Message
 
     // tutaj bedzie cala logika sprawdzania stanu przycisku
     fun determineButtonState(friendId: String, onSuccess: () -> Unit) {
@@ -225,7 +242,6 @@ class FriendRequestViewModel(
         }
     }
 
-    // todo maybe
     fun sendFriendRequestToUser() {
         viewModelScope.launch {
             try {
@@ -239,3 +255,18 @@ class FriendRequestViewModel(
         }
     }
 }
+
+@Module
+@InstallIn(ViewModelComponent::class)
+object FriendRequestModule {
+    @Provides
+    fun provideFriendRequestRepository(): FriendRequestRepositoryImpl {
+        return FriendRequestRepositoryImpl()
+    }
+
+    @Provides
+    fun provideButtonStateManager(): ButtonStateManager {
+        return ButtonStateManager
+    }
+}
+

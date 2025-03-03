@@ -128,6 +128,21 @@ class UserSearchViewModel(
         }
     }
 
+    suspend fun getUserBasedOnUserId(userId: String): UserFoundInformation? {
+        return try {
+            val result = userRepository.getUser(userId)
+            if (result.isSuccess) {
+                result.getOrNull()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+
     fun updateUserSearchQuery(query: String) {
         _searchQuery.value = query
     }

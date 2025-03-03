@@ -153,17 +153,6 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
         }
     }
 
-
-    // sprawdzamy w jakiej relacji jestemsy z konkretnym userem moga byc takie opcje:
-    // 1. Zadna relacja - Send Request
-    // 2. wyslalismy request - Request Sent
-    // 3. Znajomi - Remove
-    // dodatkowo jesli ktos nam wyslal request to moze byc tak:
-    // 1. Zadna relacja - Send Request
-    // 2. ktos wyslal request - Decline
-    // 3. Znajomi - Remove
-
-
     override suspend fun determineButtonState(searchedUserId: String): Result<String> {
         return try {
             val currentUserId = Firebase.auth.currentUser!!.uid

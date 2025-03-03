@@ -93,8 +93,6 @@ class UserManagementViewModel(
         getUserFromFireStoreToViewModel()
     }
 
-
-
     fun transportUserInformation(userData: UserData) {
         _userInformationState.update { currentState ->
             currentState.copy(
