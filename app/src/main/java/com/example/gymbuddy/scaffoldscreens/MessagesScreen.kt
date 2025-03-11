@@ -11,7 +11,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,7 +85,6 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import okhttp3.Dispatcher
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,6 +192,7 @@ fun MessagesScreen(
                             key1 = friendId
                         ) {
                             value = userSearchViewModel.getUserBasedOnUserId(friendId)
+                            value?.let { userSearchViewModel.updateUserFoundInfo(it) }
                         }
 
                         if (userInfo == null) {
@@ -255,7 +254,8 @@ fun MessagesScreen(
                                         painter = painter,
                                         lastMessage = displayLastMessage
                                     ) {
-                                        innerNavController.navigate("chat/${ch.id}")
+                                        println("user info: $userInfo")
+                                        innerNavController.navigate("chat/${ch.id}/${userInfo!!.userId}")
                                     }
                                 }
                             }
@@ -287,24 +287,15 @@ fun ChannelItem(
     lastMessage: String,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF462A00))
-            .combinedClickable(
-                onClick = { onClick() }, onLongClick = {
-                    Toast
-                        .makeText(
-                            context,
-                            "Long Click",
-                            Toast.LENGTH_LONG
-                        )
-                        .show()
-                }
-            ),
+            .clickable {
+                onClick()
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

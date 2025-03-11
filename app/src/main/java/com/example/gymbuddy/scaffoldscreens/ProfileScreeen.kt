@@ -151,8 +151,6 @@ fun ProfileScreen(
         }
     }
 
-
-
     if (imageUri != null) {
         LaunchedEffect(imageUri) {
             userManagementViewModel.uploadProfilePicture(imageUri!!)

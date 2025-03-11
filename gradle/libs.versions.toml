@@ -5,6 +5,7 @@ coilNetworkOkhttp = "3.0.4"
 coilCompose = "3.0.4"
 converterMoshiVersion = "2.5.0"
 credentials = "1.5.0-rc01"
+generativeai = "0.9.0"
 hiltAndroid = "2.51.1"
 hiltAndroidCompiler = "2.51.1"
 hiltNavigationCompose = "1.2.0"
@@ -17,6 +18,7 @@ lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2025.01.01"
 gms_services = "4.4.2"
+markdown = "0.3.2"
 material = "1.7.7"
 material3 = "1.4.0-alpha09"
 materialIconsExtendedVersion = "1.5.1"
@@ -44,6 +46,7 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshiVersion" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 firebase-storage = { module = "com.google.firebase:firebase-storage" }
+generativeai = { module = "com.google.ai.client.generativeai:generativeai", version.ref = "generativeai" }
 google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompiler" }
@@ -70,6 +73,7 @@ firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 
 # Google Play Services Auth (dla Google Sign-In)
+markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
 material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "play_services_auth" }

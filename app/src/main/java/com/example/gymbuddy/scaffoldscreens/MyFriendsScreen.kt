@@ -44,6 +44,7 @@ import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.pushnotification.DeclineFriendRequestDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import com.google.firebase.auth.ktx.auth
@@ -118,10 +119,22 @@ fun MyFriendsScreen(
                             if (friend.profilePictureUrl.isEmpty()) painterResource(R.drawable.default_profile_picture) else rememberAsyncImagePainter(
                                 friend.profilePictureUrl
                             )
+                        println("here")
                         SingleRecordOfFriendsList(
                             onSeeProfileClick = { onSeeProfileClick(friend.userId) },
                             onAcceptClick = { onAcceptClick(friend) },
-                            onDeclineClick = { onDeclineClick(friend) },
+                            onDeclineClick = {
+                                onDeclineClick(friend)
+                                println("here!")
+                                println(friend.fcmToken)
+                                println(friend.username)
+                                friendRequestViewModel.sendDeclineNotification(
+                                    declineFriendRequestDto = DeclineFriendRequestDto(
+                                        senderName = friend.username,
+                                        receiverFcmToken = friend.fcmToken
+                                    )
+                                )
+                            },
                             painter = painter,
                             firstName = friend.firstName,
                             lastName = friend.lastName,

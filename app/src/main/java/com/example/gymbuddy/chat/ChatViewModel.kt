@@ -2,6 +2,8 @@ package com.example.gymbuddy.chat
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.pushnotification.FcmApi
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
@@ -10,11 +12,17 @@ import com.google.firebase.storage.ktx.storage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import retrofit2.HttpException
+import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
-class ChatViewModel @Inject constructor() : ViewModel() {
+class ChatViewModel @Inject constructor(
+    private val fcmApi: FcmApi,
+) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val message = _messages.asStateFlow()
@@ -23,7 +31,8 @@ class ChatViewModel @Inject constructor() : ViewModel() {
     fun sendImageMessage(
         uri: Uri,
         channelID: String,
-        senderUsername: String
+        senderUsername: String,
+        receiverFcmToken: String
     ) {
         val imageRef =
             Firebase.storage.reference.child("images/chat/$channelID/${UUID.randomUUID()}")
@@ -36,25 +45,31 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                 }
                 imageRef.downloadUrl
             }.addOnCompleteListener { task ->
-                val docRef = db.collection("messages").document()
                 if (task.isSuccessful) {
                     val downloadUri = task.result
                     sendMessage(
                         channelID = channelID,
                         messageText = null,
                         senderUsername = senderUsername,
-                        image = downloadUri.toString()
+                        image = downloadUri.toString(),
+                        receiverFcmToken = receiverFcmToken
                     )
-
+                    sendMessageNotification(
+                        Message(
+                            message = "Photo",
+                            receiverFcmToken = receiverFcmToken,
+                            senderName = senderUsername
+                        )
+                    )
                 }
             }
     }
-
 
     fun sendMessage(
         channelID: String,
         messageText: String?,
         image: String? = null,
+        receiverFcmToken: String,
         senderUsername: String,
     ) {
         val docRef = db.collection("messages").document()
@@ -64,11 +79,13 @@ class ChatViewModel @Inject constructor() : ViewModel() {
             senderId = Firebase.auth.currentUser?.uid ?: "",
             message = messageText,
             channelId = channelID,
-            createdAt = System.currentTimeMillis().toString(),
+            receiverFcmToken = receiverFcmToken,
+            createdAt = System.currentTimeMillis(),
             senderName = senderUsername,
             imageUrl = image,
             senderImage = null
         )
+        sendMessageNotification(message)
         docRef.set(message)
             .addOnSuccessListener {
                 updateLastMessage(channelID, messageText ?: "")
@@ -81,27 +98,39 @@ class ChatViewModel @Inject constructor() : ViewModel() {
 
     // usuwamy wszystkie wiadomosci i wyslane zdjecia dla konkretnego kanalu
     fun deleteAllMessagesForParticularChat(channelID: String) {
-        db.collection("messages")
-            .whereEqualTo("channelId", channelID)
-            .get()
-            .addOnSuccessListener { querySnapshot ->
+        viewModelScope.launch {
+            try {
+                val querySnapshot = db.collection("messages")
+                    .whereEqualTo("channelId", channelID)
+                    .get()
+                    .await()
                 val batch = db.batch()
                 for (document in querySnapshot) {
                     batch.delete(document.reference)
                 }
-                batch.commit()
-                    .addOnSuccessListener {
-                        println("All documents have been deleted.")
-                        deleteAllImagesForParticularChat(channelID)
-                    }
-                    .addOnFailureListener { e ->
-                        println("During deleting documents an error occurred: $e")
-                    }
+                batch.commit().await()
+                println("All documents have been deleted.")
+                deleteAllImagesForParticularChat(channelID)
+            } catch (e: Exception) {
+                println("Error during deletion: $e")
             }
-            .addOnFailureListener {
-                println("Error fetching data: $it")
-            }
+        }
     }
+
+    private fun sendMessageNotification(message: Message) {
+        viewModelScope.launch {
+            try {
+                fcmApi.sendChatNotification(
+                    message = message
+                )
+            } catch (e: HttpException) {
+                e.printStackTrace()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
 
     private fun deleteAllImagesForParticularChat(channelID: String) {
         val directoryRef = Firebase.storage.reference.child("images/chat/$channelID")
@@ -129,6 +158,7 @@ class ChatViewModel @Inject constructor() : ViewModel() {
             .update("lastMessage", lastMessage)
     }
 
+    //pobieramy messages
     fun listenForMessages(channelID: String) {
         db.collection("messages")
             // pobieramy tylko ten dokument ktorego pole channel id jest rowne channelId

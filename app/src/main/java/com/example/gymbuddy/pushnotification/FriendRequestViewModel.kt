@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gymbuddy.buttonState.ButtonStateManager
+import com.example.gymbuddy.chat.Message
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
 import com.example.gymbuddy.friends.FriendInformation
@@ -32,7 +33,8 @@ import javax.inject.Inject
 @HiltViewModel
 class FriendRequestViewModel @Inject constructor(
     private val friendRequestRepository: FriendRequestRepositoryImpl,
-    private val buttonStateManager: ButtonStateManager
+    private val buttonStateManager: ButtonStateManager,
+    private val fcmApi: FcmApi
 ) : ViewModel() {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -67,13 +69,6 @@ class FriendRequestViewModel @Inject constructor(
             Log.e("FriendRequestViewModel", "Brak zalogowanego użytkownika")
         }
     }
-
-
-    private val api: FcmApi = Retrofit.Builder()
-        .baseUrl("http://10.0.2.2:8080/")
-        .addConverterFactory(MoshiConverterFactory.create())
-        .build()
-        .create()
 
     fun transferDataFromFoundUserToFriendRequest(receiverID: UserFoundInformation) {
         _friendsRequestStatus.update { currentState ->
@@ -185,6 +180,20 @@ class FriendRequestViewModel @Inject constructor(
         }
     }
 
+     fun sendDeclineNotification(declineFriendRequestDto: DeclineFriendRequestDto) {
+        viewModelScope.launch {
+            try {
+                fcmApi.sendDeclineNotification(
+                    declineFriendRequestDto = declineFriendRequestDto
+                )
+            } catch (e: HttpException) {
+                e.printStackTrace()
+            } catch (e: java.io.IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // decline
     fun deleteFriendRequestAfterAcceptingOrDecliningFriendRequestAndRefresh(
         currentUserId: String,
@@ -245,7 +254,7 @@ class FriendRequestViewModel @Inject constructor(
     fun sendFriendRequestToUser() {
         viewModelScope.launch {
             try {
-                api.sendFriendRequest(_friendsRequestStatus.value)
+                fcmApi.sendFriendRequest(_friendsRequestStatus.value)
                 buttonStateManager.updateState("Request Sent")
             } catch (e: HttpException) {
                 e.printStackTrace()

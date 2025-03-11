@@ -5,8 +5,9 @@ data class Message(
     val senderId: String = "",
     val message: String? = "",
     val channelId: String = "",
-    val createdAt: String = "",
+    val createdAt: Long = 0,
     val senderName: String = "",
+    val receiverFcmToken: String = "",
     val imageUrl: String? = null,
     val senderImage: String? = null,
 )

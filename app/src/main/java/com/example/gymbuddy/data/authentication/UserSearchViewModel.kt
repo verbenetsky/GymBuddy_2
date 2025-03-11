@@ -2,15 +2,17 @@ package com.example.gymbuddy.data.authentication
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gymbuddy.buttonState.ButtonStateManager
+import com.example.gymbuddy.chat.Message
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
+
 
 class UserSearchViewModel(
     private val userRepository: UserRepositoryImpl = UserRepositoryImpl(),
@@ -109,7 +111,7 @@ class UserSearchViewModel(
         }
     }
 
-    private fun updateUserFoundInfo(userFoundInformation: UserFoundInformation) {
+    fun updateUserFoundInfo(userFoundInformation: UserFoundInformation) {
         _userFoundInformation.value = userFoundInformation
     }
 
@@ -141,7 +143,6 @@ class UserSearchViewModel(
             null
         }
     }
-
 
     fun updateUserSearchQuery(query: String) {
         _searchQuery.value = query

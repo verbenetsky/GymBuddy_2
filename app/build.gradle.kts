@@ -141,6 +141,11 @@ dependencies {
 
     implementation(libs.material3)
 
+    implementation(libs.generativeai)
+
+    implementation(libs.markdown)
+
+
 
 
 }

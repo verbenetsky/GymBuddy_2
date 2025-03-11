@@ -36,6 +36,7 @@ import com.example.gymbuddy.chat.ChatScreen
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.scaffoldscreens.AboutScreen
+import com.example.gymbuddy.scaffoldscreens.ChatBotScreen
 import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
 import com.example.gymbuddy.scaffoldscreens.MessagesScreen
 import com.example.gymbuddy.scaffoldscreens.MyFriendsScreen
@@ -256,7 +257,7 @@ fun NavGraph(
                     innerNavController.navigate("my_friends")
                 },
                 onMyWorkoutsClick = { /* obsługa kliknięcia */ },
-                onAIChatBotClick = { /* obsługa kliknięcia */ },
+                onAIChatBotClick = { innerNavController.navigate("chatBot_screen") },
                 onMessageClick = { innerNavController.navigate("message_screen") },
                 onBackArrowClick = {
                     innerNavController.navigate("profile_screen")
@@ -268,7 +269,7 @@ fun NavGraph(
                     userManagementViewModel.clearForm()
                     signInViewModel.clearUserData()
                 },
-                onFloatingActionButtonClick = { }, //todo
+
                 innerNavController = innerNavController,
                 onSearchClick = {
                     innerNavController.navigate("search_screen")
@@ -402,6 +403,7 @@ fun NavGraph(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     },
+
                                 )
                                 userSearchViewModel.searchUser(
                                     username = userSearchViewModel.searchQuery.value,
@@ -628,17 +630,24 @@ fun NavGraph(
                     }
 
                     composable(
-                        route = "chat/{channelId}", arguments = listOf(
+                        route = "chat/{channelId}/{userId}",
+                        arguments = listOf(
                             navArgument("channelId") { type = NavType.StringType },
+                            navArgument("userId") { type = NavType.StringType }
                         )
                     )
                     { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
+                        val userId = backStackEntry.arguments?.getString("userId")
                         ChatScreen(
                             userManagementViewModel = userManagementViewModel,
                             channelID = channelId,
+                            userId = userId,
                             innerNavController = innerNavController,
                         )
+                    }
+                    composable(route = "chatBot_screen") {
+                        ChatBotScreen()
                     }
                 }
             }

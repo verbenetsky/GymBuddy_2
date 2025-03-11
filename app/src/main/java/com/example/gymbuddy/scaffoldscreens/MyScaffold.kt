@@ -1,13 +1,17 @@
 package com.example.gymbuddy.scaffoldscreens
 
 import android.annotation.SuppressLint
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -25,9 +29,13 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -39,6 +47,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -46,21 +55,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
+import com.example.gymbuddy.chat.ChatBotViewModel
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import kotlinx.coroutines.launch
@@ -70,10 +86,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun MyScaffold(
     onProfileClick: () -> Unit,
-    userManagementViewModel: UserManagementViewModel,
+    userManagementViewModel: UserManagementViewModel = hiltViewModel(),
+    chatBotViewModel: ChatBotViewModel = hiltViewModel(),
     onFriendsClick: () -> Unit,
     onMyWorkoutsClick: () -> Unit,
-    onFloatingActionButtonClick: () -> Unit,
     onAIChatBotClick: () -> Unit,
     onMessageClick: () -> Unit,
     innerNavController: NavHostController,
@@ -87,6 +103,9 @@ fun MyScaffold(
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    var expanded by remember { mutableStateOf(false) }
+    var deleteDialogState by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
     // Pobieramy aktualną trasę
@@ -110,7 +129,9 @@ fun MyScaffold(
             }
         }
     ) {
-        Scaffold(
+        Scaffold(modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
             topBar = {
                 TopAppBar(
                     title = {
@@ -124,36 +145,65 @@ fun MyScaffold(
                             )
                         }
                     },
-                    modifier = modifier.clip(
-                        RoundedCornerShape(
-                            bottomStart = 20.dp,
-                            bottomEnd = 20.dp
-                        )
-                    ),
+                    modifier = modifier
+                        .clip(
+                            RoundedCornerShape(
+                                bottomStart = 20.dp,
+                                bottomEnd = 20.dp
+                            )
+                        ),
                     navigationIcon = {
-                        if (currentRoute == "search_screen") {
-                            IconButton(onClick = { onBackArrowClick() }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Search Icon"
-                                )
+                        when (currentRoute) {
+                            "search_screen" -> {
+                                IconButton(onClick = { onBackArrowClick() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Search Icon"
+                                    )
+                                }
+
                             }
 
-                        } else {
-                            IconButton(onClick = {
-                                scope.launch {
-                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                            else -> {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = "Menu Icon"
+                                    )
                                 }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menu Icon"
-                                )
                             }
                         }
                     },
                     actions = {
-                        if (currentRoute != "search_screen") {
+                        if (currentRoute == "chatBot_screen") {
+
+                            DropDownMenuImpl(
+                                expanded = expanded,
+                                onDeleteClick = { deleteDialogState = true },
+                                onExpandedChange = { newValue -> expanded = newValue }
+                            )
+
+                            AlertDialogDeleteChatBot(
+                                dialogState = deleteDialogState,
+                                changeDialogState = { newValue -> deleteDialogState = newValue },
+                                onDeleteClick = {
+                                    chatBotViewModel.deleteChatBotConversation(
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "Conversation deleted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
+                                }
+                            )
+
+                        } else if (currentRoute != "search_screen") {
                             IconButton(onClick = { onSearchClick() }) {
                                 Icon(
                                     imageVector = Icons.Default.Search,
@@ -326,4 +376,72 @@ fun DrawerContent(
             scope.launch { drawerState.close() }
         }
     )
+}
+
+@Composable
+fun DropDownMenuImpl(
+    expanded: Boolean,
+    onDeleteClick: () -> Unit,
+    onExpandedChange: (Boolean) -> Unit,
+) {
+    Row {
+        IconButton(onClick = { onExpandedChange(true) }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "More Icon"
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
+            DropdownMenuItem(
+                text = { Text("Delete Conversation") },
+                onClick = {
+                    onExpandedChange(false)
+                    onDeleteClick()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun AlertDialogDeleteChatBot(
+    dialogState: Boolean,
+    changeDialogState: (Boolean) -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    if (dialogState) {
+        AlertDialog(
+            onDismissRequest = {
+                changeDialogState(false)
+            },
+            title = {
+                Text(
+                    text = "Delete ChatBot conversation",
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp)
+                )
+            },
+            text = {
+                Text("You sure you want to delete conversation with chatbot ?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteClick()
+                        changeDialogState(false)
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        changeDialogState(false)
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }

@@ -15,12 +15,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import android.Manifest
+import android.content.pm.PackageManager
+import android.util.Log
 import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,6 +40,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,19 +48,27 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -60,24 +77,38 @@ import coil3.compose.AsyncImage
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
+import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import java.io.File
+import java.text.DateFormat
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
 @Composable
 fun ChatScreen(
     userManagementViewModel: UserManagementViewModel,
+    userSearchViewModel: UserSearchViewModel = hiltViewModel(),
     innerNavController: NavController,
+    userId: String?,
     channelID: String,
 ) {
     val chatViewModel: ChatViewModel = hiltViewModel()
+    //curent user info
     val userInformation = userManagementViewModel.userInformationState.collectAsState()
+    // user info with which we have a chat
+    val userFoundInformation = userSearchViewModel.userFoundInformation.collectAsState()
+
     val viewModel: ChatViewModel = hiltViewModel()
     val chooserDialog = remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val listState = rememberLazyListState()
 
     val cameraImageUri = remember { mutableStateOf<Uri?>(null) }
     val cameraImageLauncher = rememberLauncherForActivityResult(
@@ -85,7 +116,10 @@ fun ChatScreen(
     ) { success ->
         if (success) {
             cameraImageUri.value?.let {
-                chatViewModel.sendImageMessage(it, channelID, userInformation.value.username)
+                chatViewModel.sendImageMessage(
+                    it, channelID, userInformation.value.username,
+                    receiverFcmToken = userFoundInformation.value.fcmToken,
+                )
             }
         }
     }
@@ -94,13 +128,21 @@ fun ChatScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            chatViewModel.sendImageMessage(it, channelID, userInformation.value.username)
+            chatViewModel.sendImageMessage(
+                it,
+                channelID,
+                userInformation.value.username,
+                receiverFcmToken = ""
+            )
         }
     }
 
 
     LaunchedEffect(Unit) {
         viewModel.listenForMessages(channelID)
+        if (userId != null) {
+            userSearchViewModel.getUserBasedOnUserId(userId, onSuccess = {})
+        }
     }
 
     val messages = viewModel.message.collectAsState()
@@ -111,11 +153,13 @@ fun ChatScreen(
             viewModel.sendMessage(
                 channelID = channelID,
                 messageText = message,
+                receiverFcmToken = userFoundInformation.value.fcmToken,
                 senderUsername = userInformation.value.username,
             )
         }, onImageClick = {
             chooserDialog.value = true
-        }
+        },
+        listState = listState
     )
 
     fun createImageUri(context: Context): Uri {
@@ -137,13 +181,11 @@ fun ChatScreen(
             }
         }
 
-
-
     if (chooserDialog.value) {
         ContentSelectionDialog(
             onCameraSelected = {
                 chooserDialog.value = false
-                if (innerNavController.context.checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if (innerNavController.context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     cameraImageLauncher.launch(createImageUri(context))
                 } else {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -157,10 +199,10 @@ fun ChatScreen(
     }
 }
 
-
 @Composable
 fun ChatListMessages(
     messages: List<Message>,
+    listState: LazyListState,
     onSendMessage: (String) -> Unit,
     onImageClick: () -> Unit
 ) {
@@ -168,8 +210,12 @@ fun ChatListMessages(
     val hideKeyboardController = LocalSoftwareKeyboardController.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
-            items(messages) { message ->
+        LazyColumn(
+            contentPadding = PaddingValues(bottom = 80.dp),
+            state = listState,
+            reverseLayout = true
+        ) {
+            items(messages.reversed()) { message ->
                 ChatBubble(message = message)
             }
         }
@@ -225,17 +271,13 @@ fun ChatListMessages(
 @Composable
 fun ChatBubble(message: Message) {
     val isCurrentUser = message.senderId == Firebase.auth.currentUser?.uid
-
-    val bubbleColor = if (isCurrentUser) {
-        Color(0xFF8A6F4A)
-    } else {
-        Color(0xFF855400).copy(alpha = 0.8f)
-    }
+    val bubbleColor = if (isCurrentUser) Color(0xFF8A6F4A) else Color(0xFF855400).copy(alpha = 0.8f)
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
     ) {
         val alignment = if (!isCurrentUser) Alignment.CenterStart else Alignment.CenterEnd
         Row(
@@ -253,45 +295,49 @@ fun ChatBubble(message: Message) {
                         .size(40.dp)
                 )
             }
-
-            if (message.imageUrl != null) {
-                Box(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .background(color = bubbleColor, shape = RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                ) {
-                    AsyncImage(
-                        model = message.imageUrl,
-                        contentDescription = "image",
-                        modifier = Modifier.size(200.dp),
-                        contentScale = ContentScale.FillBounds // rozciaga troche ale niech bedzoe
-                    )
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .background(color = bubbleColor, shape = RoundedCornerShape(8.dp))
-                        .padding(8.dp)
-                ) {
+            Box(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .background(bubbleColor, RoundedCornerShape(8.dp))
+                    .padding(8.dp)
+                    .widthIn(max = (screenWidthDp * 0.7f).dp)
+            ) {
+                Column {
+                    if (!message.imageUrl.isNullOrEmpty()) {
+                        val painter = rememberAsyncImagePainter(
+                            model = message.imageUrl,
+                            error = painterResource(R.drawable.default_profile_picture)
+                        )
+                        Image(
+                            painter = painter,
+                            contentDescription = "Sent image",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(
+                            text = message.message?.trim().orEmpty(),
+                            color = Color.White
+                        )
+                    }
                     Text(
-                        text = message.message?.trim() ?: "",
-                        color = Color.White,
+                        text = dateConverter(message.createdAt),
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp),
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .align(if (isCurrentUser) Alignment.End else Alignment.Start)
                     )
                 }
             }
         }
-
     }
 }
+
+
 
 @Composable
 fun ContentSelectionDialog(onCameraSelected: () -> Unit, onGallerySelected: () -> Unit) {
     AlertDialog(
-        onDismissRequest = {
-
-        },
+        onDismissRequest = {},
         confirmButton = {
             TextButton(onClick = { onCameraSelected() }) {
                 Text(text = "Camera", color = Color.White)
@@ -301,7 +347,6 @@ fun ContentSelectionDialog(onCameraSelected: () -> Unit, onGallerySelected: () -
             TextButton(onClick = { onGallerySelected() }) {
                 Text(text = "Gallery", color = Color.White)
             }
-
         },
         title = {
             Text(text = "Select your source")
@@ -309,4 +354,15 @@ fun ContentSelectionDialog(onCameraSelected: () -> Unit, onGallerySelected: () -
         text = {
             Text(text = "Choose a source from which to retrieve an image")
         })
+}
+
+fun dateConverter(timestamp: Long): String {
+    val instant = Instant.ofEpochMilli(timestamp)
+    val localDate: LocalDateTime? = instant.atZone(ZoneId.systemDefault()).toLocalDateTime()
+    val formatter = DateTimeFormatter.ofPattern("dd/MM HH:mm", Locale.getDefault())
+    return if (localDate != null) {
+        localDate.format(formatter)
+    } else {
+        ""
+    }
 }
