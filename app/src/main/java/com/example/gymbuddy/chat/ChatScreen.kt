@@ -132,7 +132,7 @@ fun ChatScreen(
                 it,
                 channelID,
                 userInformation.value.username,
-                receiverFcmToken = ""
+                receiverFcmToken = userFoundInformation.value.fcmToken
             )
         }
     }

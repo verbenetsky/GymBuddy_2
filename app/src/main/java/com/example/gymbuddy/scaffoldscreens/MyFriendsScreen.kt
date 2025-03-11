@@ -19,12 +19,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,17 +36,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavHostController
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.data.authentication.UserSearchViewModel
-import com.example.gymbuddy.pushnotification.DeclineFriendRequestDto
+import com.example.gymbuddy.pushnotification.AcceptOrDeclineFriendRequestDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 
 @Composable
 fun MyFriendsScreen(
@@ -119,17 +112,21 @@ fun MyFriendsScreen(
                             if (friend.profilePictureUrl.isEmpty()) painterResource(R.drawable.default_profile_picture) else rememberAsyncImagePainter(
                                 friend.profilePictureUrl
                             )
-                        println("here")
                         SingleRecordOfFriendsList(
                             onSeeProfileClick = { onSeeProfileClick(friend.userId) },
-                            onAcceptClick = { onAcceptClick(friend) },
+                            onAcceptClick = {
+                                onAcceptClick(friend)
+                                friendRequestViewModel.sendAcceptNotification(
+                                    acceptFriendRequestDto = AcceptOrDeclineFriendRequestDto(
+                                        senderName = friend.username,
+                                        receiverFcmToken = friend.fcmToken
+                                    )
+                                )
+                            },
                             onDeclineClick = {
                                 onDeclineClick(friend)
-                                println("here!")
-                                println(friend.fcmToken)
-                                println(friend.username)
                                 friendRequestViewModel.sendDeclineNotification(
-                                    declineFriendRequestDto = DeclineFriendRequestDto(
+                                    declineFriendRequestDto = AcceptOrDeclineFriendRequestDto(
                                         senderName = friend.username,
                                         receiverFcmToken = friend.fcmToken
                                     )

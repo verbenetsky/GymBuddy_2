@@ -3,9 +3,7 @@ package com.example.gymbuddy.pushnotification
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gymbuddy.buttonState.ButtonStateManager
-import com.example.gymbuddy.chat.Message
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
 import com.example.gymbuddy.friends.FriendInformation
@@ -23,9 +21,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okio.IOException
 import retrofit2.HttpException
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
-import retrofit2.create
 import dagger.Module
 import dagger.Provides
 import javax.inject.Inject
@@ -180,11 +175,25 @@ class FriendRequestViewModel @Inject constructor(
         }
     }
 
-     fun sendDeclineNotification(declineFriendRequestDto: DeclineFriendRequestDto) {
+    fun sendDeclineNotification(declineFriendRequestDto: AcceptOrDeclineFriendRequestDto) {
         viewModelScope.launch {
             try {
                 fcmApi.sendDeclineNotification(
                     declineFriendRequestDto = declineFriendRequestDto
+                )
+            } catch (e: HttpException) {
+                e.printStackTrace()
+            } catch (e: java.io.IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendAcceptNotification(acceptFriendRequestDto: AcceptOrDeclineFriendRequestDto) {
+        viewModelScope.launch {
+            try {
+                fcmApi.sendAcceptNotification(
+                    acceptFriendRequestDto = acceptFriendRequestDto
                 )
             } catch (e: HttpException) {
                 e.printStackTrace()
