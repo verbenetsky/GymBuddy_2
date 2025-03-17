@@ -1,6 +1,6 @@
 package com.example.gymbuddy.pushnotification
 
-data class AcceptOrDeclineFriendRequestDto(
+data class AcceptOrDeclineOrRemoveFriendDto(
     val senderName: String,
     val receiverFcmToken: String
 )

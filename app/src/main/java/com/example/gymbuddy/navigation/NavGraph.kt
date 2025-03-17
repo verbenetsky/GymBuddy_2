@@ -41,8 +41,10 @@ import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
 import com.example.gymbuddy.scaffoldscreens.MessagesScreen
 import com.example.gymbuddy.scaffoldscreens.MyFriendsScreen
 import com.example.gymbuddy.scaffoldscreens.MyScaffold
+import com.example.gymbuddy.scaffoldscreens.MyWorkoutsScreen
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.example.gymbuddy.scaffoldscreens.SearchScreen
+import com.example.gymbuddy.workout.AddWorkoutScreen
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
@@ -254,9 +256,9 @@ fun NavGraph(
                 onFriendsClick = {
                     friendRequestViewModel.fetchAllFriendRequestsAndFullInformation(currentUser)
                     friendRequestViewModel.getAllFriend(currentUser)
-                    innerNavController.navigate("my_friends")
+                    innerNavController.navigate("my_friends_screen")
                 },
-                onMyWorkoutsClick = { /* obsługa kliknięcia */ },
+                onMyWorkoutsClick = { innerNavController.navigate("my_workouts_screen") },
                 onAIChatBotClick = { innerNavController.navigate("chatBot_screen") },
                 onMessageClick = { innerNavController.navigate("message_screen") },
                 onBackArrowClick = {
@@ -404,7 +406,7 @@ fun NavGraph(
                                         ).show()
                                     },
 
-                                )
+                                    )
                                 userSearchViewModel.searchUser(
                                     username = userSearchViewModel.searchQuery.value,
                                     onSuccessSearch = {
@@ -490,7 +492,7 @@ fun NavGraph(
                                             "You have got a new friend!",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                        innerNavController.navigate("my_friends")
+                                        innerNavController.navigate("my_friends_screen")
                                     },
                                     onFailure = {
                                         Toast.makeText(
@@ -540,7 +542,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable("my_friends") {
+                    composable("my_friends_screen") {
                         MyFriendsScreen(
                             friendRequestViewModel = friendRequestViewModel,
                             onAcceptClick = {
@@ -619,7 +621,6 @@ fun NavGraph(
                                     },
                                 )
                                 friendRequestViewModel.getAllFriend(currentUser)
-
                             },
                         )
                     }
@@ -649,9 +650,16 @@ fun NavGraph(
                     composable(route = "chatBot_screen") {
                         ChatBotScreen()
                     }
+                    composable(route = "my_workouts_screen") {
+                        MyWorkoutsScreen(
+                            navigateToAddWorkoutScreen = { innerNavController.navigate("add_workout_screen") },
+                        )
+                    }
+                    composable(route = "add_workout_screen") {
+                        AddWorkoutScreen()
+                    }
                 }
             }
         }
-
     }
 }

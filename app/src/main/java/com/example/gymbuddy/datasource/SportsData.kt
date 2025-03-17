@@ -10,3 +10,15 @@ object SportsData {
         "Wrestling", "Powerlifting", "Parkour", "Skateboarding", "Bowling"
     )
 }
+
+object TypeOfWorkoutData {
+    val TypeOfWorkout = listOf(
+        "Strength training", "Cardio session", "HIT training"
+    )
+}
+
+object StatusOfWorkoutData {
+    val statusOfWorkout = listOf(
+        "Planned", "In Progress", "Finished"
+    )
+}

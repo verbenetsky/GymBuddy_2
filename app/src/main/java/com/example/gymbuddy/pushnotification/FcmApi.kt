@@ -19,12 +19,17 @@ interface FcmApi {
 
     @POST("/send_decline_notification")
     suspend fun sendDeclineNotification(
-        @Body declineFriendRequestDto: AcceptOrDeclineFriendRequestDto
+        @Body declineFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto
     )
 
     @POST("/send_accept_notification")
     suspend fun sendAcceptNotification(
-        @Body acceptFriendRequestDto: AcceptOrDeclineFriendRequestDto
+        @Body acceptFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto
+    )
+
+    @POST("/send_remove_notification")
+    suspend fun sendRemoveNotification(
+        @Body removeDto: AcceptOrDeclineOrRemoveFriendDto
     )
 }
 

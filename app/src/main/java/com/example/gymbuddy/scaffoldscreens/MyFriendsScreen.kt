@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.pushnotification.AcceptOrDeclineFriendRequestDto
+import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 
@@ -59,7 +59,6 @@ fun MyFriendsScreen(
     var myFriendsSubScreen by remember { mutableStateOf(false) }
     var myInvitationSubScreen by remember { mutableStateOf(true) }
     var friendToRemove by remember { mutableStateOf<UserFoundInformation?>(null) }
-    var friendToVisit by remember { mutableStateOf<UserFoundInformation?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -116,8 +115,9 @@ fun MyFriendsScreen(
                             onSeeProfileClick = { onSeeProfileClick(friend.userId) },
                             onAcceptClick = {
                                 onAcceptClick(friend)
+                                println("tutaj accept sie kliknalem")
                                 friendRequestViewModel.sendAcceptNotification(
-                                    acceptFriendRequestDto = AcceptOrDeclineFriendRequestDto(
+                                    acceptFriendRequestDto = AcceptOrDeclineOrRemoveFriendDto(
                                         senderName = friend.username,
                                         receiverFcmToken = friend.fcmToken
                                     )
@@ -126,7 +126,7 @@ fun MyFriendsScreen(
                             onDeclineClick = {
                                 onDeclineClick(friend)
                                 friendRequestViewModel.sendDeclineNotification(
-                                    declineFriendRequestDto = AcceptOrDeclineFriendRequestDto(
+                                    declineFriendRequestDto = AcceptOrDeclineOrRemoveFriendDto(
                                         senderName = friend.username,
                                         receiverFcmToken = friend.fcmToken
                                     )
@@ -179,7 +179,15 @@ fun MyFriendsScreen(
             AlertDialogDeleteFriend(
                 dialogState = alertDialogState,
                 changeDialogState = { newValue -> alertDialogState = newValue },
-                onRemoveFriendClick = { onRemoveFriendClick(friend) },
+                onRemoveFriendClick = {
+                    onRemoveFriendClick(friend)
+                    friendRequestViewModel.sendRemoveNotification(
+                        removeDto = AcceptOrDeclineOrRemoveFriendDto(
+                            senderName = friend.username,
+                            receiverFcmToken = friend.fcmToken
+                        )
+                    )
+                },
                 userFoundInformation = friend,
             )
         }

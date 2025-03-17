@@ -175,7 +175,7 @@ class FriendRequestViewModel @Inject constructor(
         }
     }
 
-    fun sendDeclineNotification(declineFriendRequestDto: AcceptOrDeclineFriendRequestDto) {
+    fun sendDeclineNotification(declineFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto) {
         viewModelScope.launch {
             try {
                 fcmApi.sendDeclineNotification(
@@ -189,7 +189,21 @@ class FriendRequestViewModel @Inject constructor(
         }
     }
 
-    fun sendAcceptNotification(acceptFriendRequestDto: AcceptOrDeclineFriendRequestDto) {
+    fun sendRemoveNotification(removeDto: AcceptOrDeclineOrRemoveFriendDto) {
+        viewModelScope.launch {
+            try {
+                fcmApi.sendRemoveNotification(
+                    removeDto = removeDto
+                )
+            } catch (e: HttpException) {
+                e.printStackTrace()
+            } catch (e: java.io.IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendAcceptNotification(acceptFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto) {
         viewModelScope.launch {
             try {
                 fcmApi.sendAcceptNotification(

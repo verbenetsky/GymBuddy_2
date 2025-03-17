@@ -40,17 +40,21 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
+import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun SearchScreen(
     userSearchState: UserSearchViewModel.UserSearchState,
+    friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
     onSearchClick: (UserFoundInformation) -> Unit,
     onGuestProfileClick: () -> Unit,
     onProfileClick: () -> Unit,
@@ -122,7 +126,15 @@ fun SearchScreen(
         AlertDialogDeleteFriend(
             dialogState = alertDialogState,
             changeDialogState = { newState -> alertDialogState = newState },
-            onRemoveFriendClick = { onRemoveClick() },
+            onRemoveFriendClick = {
+                onRemoveClick()
+                friendRequestViewModel.sendRemoveNotification(
+                    AcceptOrDeclineOrRemoveFriendDto(
+                        it.username,
+                        it.fcmToken
+                    )
+                )
+            },
             userFoundInformation = userFoundInformation
         )
     }

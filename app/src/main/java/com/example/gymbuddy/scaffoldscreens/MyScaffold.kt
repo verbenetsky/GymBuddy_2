@@ -105,6 +105,7 @@ fun MyScaffold(
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var deleteDialogState by remember { mutableStateOf(false) }
+    var addWorkoutScreenDialogState by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
@@ -140,7 +141,9 @@ fun MyScaffold(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(R.string.app_name),
+                                text = if (currentRoute == "add_workout_screen") "Add Your Workout" else stringResource(
+                                    R.string.app_name
+                                ),
                                 style = MaterialTheme.typography.appBarTitle,
                             )
                         }
@@ -158,7 +161,19 @@ fun MyScaffold(
                                 IconButton(onClick = { onBackArrowClick() }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Search Icon"
+                                        contentDescription = "Back Icon"
+                                    )
+                                }
+
+                            }
+
+                            "add_workout_screen" -> {
+                                IconButton(onClick = {
+                                    addWorkoutScreenDialogState = true
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back Icon"
                                     )
                                 }
 
@@ -221,6 +236,13 @@ fun MyScaffold(
             },
             content = { paddingValues ->
                 content(paddingValues)
+                AlertDialogClosingGoingBack(
+                    addWorkoutScreenDialogState = addWorkoutScreenDialogState,
+                    changeDialogState = { newValue ->
+                        addWorkoutScreenDialogState = newValue
+                    },
+                    navigateBack = { innerNavController.navigateUp() }
+                )
             }
         )
     }
@@ -428,6 +450,46 @@ fun AlertDialogDeleteChatBot(
                     onClick = {
                         onDeleteClick()
                         changeDialogState(false)
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        changeDialogState(false)
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun AlertDialogClosingGoingBack(
+    addWorkoutScreenDialogState: Boolean,
+    changeDialogState: (Boolean) -> Unit,
+    navigateBack: () -> Unit,
+) {
+    if (addWorkoutScreenDialogState) {
+        AlertDialog(
+            onDismissRequest = {
+                changeDialogState(false)
+            },
+            title = {
+                Text(text = "Confirm Exit")
+            },
+            text = {
+                Text("Are you sure you want to exit? Any unsaved changes will be lost.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        changeDialogState(false)
+                        navigateBack()
                     }
                 ) {
                     Text("Confirm")

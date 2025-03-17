@@ -278,7 +278,6 @@ fun MessagesScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChannelItem(
     firstName: String,
