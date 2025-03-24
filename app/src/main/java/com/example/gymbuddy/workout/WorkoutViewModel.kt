@@ -1,16 +1,28 @@
 package com.example.gymbuddy.workout
 
+import androidx.compose.runtime.State
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.Query
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-import kotlin.time.Duration
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor() : ViewModel() {
+
+    private val db = Firebase.firestore
+    private val currentUserUID = Firebase.auth.currentUser!!.uid
 
     // stan calego treningu, czyli ile cwiczen i nazwa treningu (trening silowy)
     private val _strengthWorkoutState = MutableStateFlow(WorkoutState())
@@ -24,24 +36,194 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
     private val _hitWorkoutState = MutableStateFlow(WorkoutState())
     val hitWorkoutState: StateFlow<WorkoutState> = _hitWorkoutState.asStateFlow()
 
+    private val _listOfWorkouts = MutableStateFlow<List<WorkoutState>>(emptyList())
+    val listOfWorkouts = _listOfWorkouts.asStateFlow()
+
+    private val _workoutToEdit = MutableStateFlow(WorkoutState())
+    val workoutToEdit: StateFlow<WorkoutState> = _workoutToEdit.asStateFlow()
+
+    private var workoutsListenerRegistration: ListenerRegistration? = null
+
     // ---------------------------------------------------------------------------------------------
 
-    private fun addSetOrCardioOrHitToExercise(
-        workoutStateFlow: MutableStateFlow<WorkoutState>,
-        exerciseId: String,
-        isCardio: Boolean,
+    init {
+        listenForWorkouts()
+    }
+
+    // ogl jak korzystamy z korutyny to nie mieszamy style, czyli nie dajemy addOnSuccessListener
+    // i addOnFailureListener, trzeba korzystac z metod opartych na suspend fun
+
+    //sortowac mozna bedzie po:
+    // Status: Finished, Planned, In Progress - jesli tylko sam status to 0 indeksow
+    // Type: Cardio Workout, HIT Workout, Strength Workout - jesli tylko sam type to 0 indeksow
+    // jesli np:
+
+    //  - Status: Finished i Type: Cardio Workout - to juz 1 index
+    //  - Status: Planned i Type: Cardio Workout - to juz 1 index
+    //  - Status: In Progress i Type: Cardio Workout - to juz 1 index
+
+    //  - Status: Finished i Type: HIT Workout - to juz 1 index
+    //  - Status: Planned i Type: HIT Workout - to juz 1 index
+    //  - Status: In Progress i Type: HIT Workout - to juz 1 index
+
+    //  - Status: Finished i Type: Strength Workout - to juz 1 index
+    //  - Status: Planned i Type: Strength Workout - to juz 1 index
+    //  - Status: In Progress i Type: Strength Workout - to juz 1 index
+
+    // jesli chcemy jeszcze kazda opcje moc posortowac za pomoca OrderBy to jescze 4 indeksy dla kazdego
+    // a jesli jescze dodatkowo Ascending lub Descending to juz 8 zamiast 4.
+
+    // OrderBy: Ascending, Descending. Po takich polach jak: duration, exercise, overall lifted
+    // calories burned, hits lasted, date
+
+    // jesli nie wybrano zadny konkrentny trening to mozna posortowac tylko po: duration, exercise, date
+
+    // gdzie jesli wybrano Cardio Workout to mozna posortowac po: duration, exercise, calories burned, date
+    // gdzie jesli wybrano HIT Workout to mozna posortowac po: duration, exercise, hits lasted, date
+    // gdzie jesli wybrano Strength Workout to mozna posortowac po: duration, exercise, overall lifted, date
+
+    fun listenForWorkouts(
+        sortField: String? = null,
+        direction: Query.Direction = Query.Direction.ASCENDING,
+        filters: Map<String, Any> = emptyMap()
+
     ) {
 
+        var query: Query = db.collection("workouts")
+            .document(currentUserUID)
+            .collection("workouts_of_user")
+
+        filters.forEach { (field, value) ->
+            query = query.whereEqualTo(field, value)
+        }
+
+        if (sortField != null) {
+            query = query.orderBy(sortField, direction)
+        }
+
+        query.addSnapshotListener { querySnapshot, error ->
+            if (error != null) {
+                println("Error listening: $error")
+                return@addSnapshotListener
+            }
+            val workouts = querySnapshot?.documents?.mapNotNull { documentSnapshot ->
+                documentSnapshot.toObject(WorkoutState::class.java)
+            } ?: emptyList()
+            _listOfWorkouts.value = workouts
+        }
+    }
+
+
+    override fun onCleared() {
+        super.onCleared()
+        workoutsListenerRegistration?.remove()
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    fun removeWorkoutFromDb(workoutId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                println("usuwany wokrout o tym id : $workoutId")
+                db.collection("workouts")
+                    .document(currentUserUID)
+                    .collection("workouts_of_user")
+                    .document(workoutId)
+                    .delete()
+                    .await()
+                onSuccess()
+            } catch (e: Exception) {
+                println("Error deleting workout: $e")
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    fun updateCurrentWorkout(
+        workoutId: String,
+        updateWorkout: WorkoutState,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            try {
+                db.collection("workouts")
+                    .document(currentUserUID)
+                    .collection("workouts_of_user")
+                    .document(workoutId)
+                    .set(
+                        updateWorkout,
+                        SetOptions.merge()
+                    ) // zastapi tylko te pola ktore sie zmienily
+                    .await()
+                onSuccess()
+            } catch (e: Exception) {
+                println("Something gone wrong: $e")
+                onFailure()
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private fun addWorkoutToList(workoutState: WorkoutState) {
+        _listOfWorkouts.update { currentState -> currentState + workoutState }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    // tutaj dodajemy do tymczasowej zmienne jeden workout zeby potem moc go wyswietlic i zaudejtowac
+    fun tryToEditWorkout(workoutToEdit: WorkoutState) {
+        _workoutToEdit.value = workoutToEdit
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+
+    fun saveWorkoutToDb(workoutState: WorkoutState, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                db.collection("workouts")
+                    .document(currentUserUID)
+                    .collection("workouts_of_user")
+                    .document(workoutState.id)
+                    .set(workoutState)
+                onSuccess()
+                addWorkoutToList(workoutState)
+                println(workoutState)
+            } catch (e: Exception) {
+                println(e)
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private fun addElementToExercise(
+        workoutStateFlow: MutableStateFlow<WorkoutState>,
+        exerciseId: String,
+        elementType: ExerciseElementType
+    ) {
         val currentWorkout = workoutStateFlow.value
 
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                if (isCardio) {
-                    val newCardio = CardioState()
-                    exercise.copy(listOfCardio = exercise.listOfCardio + newCardio)
-                } else {
-                    val newSet = SetState()
-                    exercise.copy(listOfSets = exercise.listOfSets + newSet)
+                when (elementType) {
+                    ExerciseElementType.CARDIO -> {
+                        val newCardio = CardioState()
+                        exercise.copy(listOfCardio = exercise.listOfCardio + newCardio)
+                    }
+
+                    ExerciseElementType.SET -> {
+                        val newSet = SetState()
+                        exercise.copy(listOfSets = exercise.listOfSets + newSet)
+                    }
+
+                    ExerciseElementType.HIT -> {
+                        val newHit = HitState()
+                        exercise.copy(listOfHits = exercise.listOfHits + newHit)
+                    }
                 }
             } else {
                 exercise
@@ -51,31 +233,55 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
     }
 
     fun addCardioToExercise(exerciseId: String) {
-        addSetOrCardioOrHitToExercise(_cardioWorkoutState, exerciseId, true)
+        addElementToExercise(_cardioWorkoutState, exerciseId, ExerciseElementType.CARDIO)
     }
 
     fun addSetToExercise(exerciseId: String) {
-        addSetOrCardioOrHitToExercise(_strengthWorkoutState, exerciseId, false)
+        addElementToExercise(_strengthWorkoutState, exerciseId, ExerciseElementType.SET)
+    }
+
+    fun addHitToExercise(exerciseId: String) {
+        addElementToExercise(_hitWorkoutState, exerciseId, ExerciseElementType.HIT)
+    }
+
+    fun addCardioToEditExercise(exerciseId: String) {
+        addElementToExercise(_workoutToEdit, exerciseId, ExerciseElementType.CARDIO)
+    }
+
+    fun addSetToEditExercise(exerciseId: String) {
+        addElementToExercise(_workoutToEdit, exerciseId, ExerciseElementType.SET)
+    }
+
+    fun addHitToEditExercise(exerciseId: String) {
+        addElementToExercise(_workoutToEdit, exerciseId, ExerciseElementType.HIT)
     }
 
     // ---------------------------------------------------------------------------------------------
 
-    private fun delete(
+    private fun deleteElementFromExercise(
         workoutStateFlow: MutableStateFlow<WorkoutState>,
-        isCardio: Boolean,
-        cardioId: String = "",
-        setId: String = "",
-        exerciseId: String
+        exerciseId: String,
+        elementType: ExerciseElementType,
+        elementId: String
     ) {
         val currentWorkout = workoutStateFlow.value
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                if (isCardio) {
-                    val updatedCardios = exercise.listOfCardio.filter { it.id != cardioId }
-                    exercise.copy(listOfCardio = updatedCardios)
-                } else {
-                    val updatedSets = exercise.listOfSets.filter { it.id != setId }
-                    exercise.copy(listOfSets = updatedSets)
+                when (elementType) {
+                    ExerciseElementType.CARDIO -> {
+                        val updatedCardios = exercise.listOfCardio.filter { it.id != elementId }
+                        exercise.copy(listOfCardio = updatedCardios)
+                    }
+
+                    ExerciseElementType.SET -> {
+                        val updatedSets = exercise.listOfSets.filter { it.id != elementId }
+                        exercise.copy(listOfSets = updatedSets)
+                    }
+
+                    ExerciseElementType.HIT -> {
+                        val updatedHits = exercise.listOfHits.filter { it.id != elementId }
+                        exercise.copy(listOfHits = updatedHits)
+                    }
                 }
             } else {
                 exercise
@@ -85,91 +291,243 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
     }
 
     fun deleteCardioFromExercise(cardioId: String, exerciseId: String) {
-        delete(_cardioWorkoutState, true, cardioId, exerciseId = exerciseId)
+        deleteElementFromExercise(
+            _cardioWorkoutState,
+            exerciseId,
+            ExerciseElementType.CARDIO,
+            cardioId
+        )
     }
 
     fun deleteSetFromExercise(setId: String, exerciseId: String) {
-        delete(_strengthWorkoutState,false, setId = setId, exerciseId = exerciseId)
+        deleteElementFromExercise(_strengthWorkoutState, exerciseId, ExerciseElementType.SET, setId)
     }
+
+    fun deleteHitFromExercise(hitId: String, exerciseId: String) {
+        deleteElementFromExercise(_hitWorkoutState, exerciseId, ExerciseElementType.HIT, hitId)
+    }
+
+    // *****************************************************************************************
+
+    fun deleteCardioFromEditExercise(cardioId: String, exerciseId: String) {
+        deleteElementFromExercise(_workoutToEdit, exerciseId, ExerciseElementType.CARDIO, cardioId)
+    }
+
+    fun deleteSetFromEditExercise(setId: String, exerciseId: String) {
+        deleteElementFromExercise(_workoutToEdit, exerciseId, ExerciseElementType.SET, setId)
+    }
+
+    fun deleteHitFromEditExercise(hitId: String, exerciseId: String) {
+        deleteElementFromExercise(_workoutToEdit, exerciseId, ExerciseElementType.HIT, hitId)
+    }
+
+    // *****************************************************************************************
+
 
     // ---------------------------------------------------------------------------------------------
 
-    fun updateKgInSet(exerciseId: String, setId: String, kg: String) {
-        val currentWorkout = _strengthWorkoutState.value
+    fun updateKgInSet(
+        exerciseId: String,
+        setId: String,
+        kg: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _strengthWorkoutState.value
+        }
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                val updateSets = exercise.listOfSets.map { set ->
+                val updatedSets = exercise.listOfSets.map { set ->
                     if (set.id == setId) {
                         set.copy(kg = kg)
                     } else {
                         set
                     }
                 }
-                exercise.copy(listOfSets = updateSets)
+                exercise.copy(listOfSets = updatedSets)
             } else {
                 exercise
             }
         }
-        _strengthWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _strengthWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
     }
 
-    fun updateRepsInSet(exerciseId: String, setId: String, reps: String) {
-        val currentWorkout = _strengthWorkoutState.value
+    fun updateRepsInSet(
+        exerciseId: String,
+        setId: String,
+        reps: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _strengthWorkoutState.value
+        }
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                val updateSets = exercise.listOfSets.map { set ->
+                val updatedSets = exercise.listOfSets.map { set ->
                     if (set.id == setId) {
                         set.copy(reps = reps)
                     } else {
                         set
                     }
                 }
-                exercise.copy(listOfSets = updateSets)
+                exercise.copy(listOfSets = updatedSets)
             } else {
                 exercise
             }
         }
-        _strengthWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _strengthWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
 
-    fun updateKcalInCardio(exerciseId: String, cardioId: String, kcal: String) {
-        val currentWorkout = _cardioWorkoutState.value
+    fun updateKcalInCardio(
+        exerciseId: String,
+        cardioId: String,
+        kcal: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _cardioWorkoutState.value
+        }
+
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                val updateSets = exercise.listOfCardio.map { set ->
-                    if (set.id == cardioId) {
-                        set.copy(kcal = kcal)
+                val updatedCardio = exercise.listOfCardio.map { cardio ->
+                    if (cardio.id == cardioId) {
+                        cardio.copy(kcal = kcal)
                     } else {
-                        set
+                        cardio
                     }
                 }
-                exercise.copy(listOfCardio = updateSets)
+                exercise.copy(listOfCardio = updatedCardio)
             } else {
                 exercise
             }
         }
-        _cardioWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _cardioWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
     }
 
-    fun updateDurationInCardio(exerciseId: String, cardioId: String, duration: String) {
-        val currentWorkout = _cardioWorkoutState.value
+    fun updateDurationInCardio(
+        exerciseId: String,
+        cardioId: String,
+        duration: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _cardioWorkoutState.value
+        }
+
         val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
             if (exercise.id == exerciseId) {
-                val updateCardio = exercise.listOfCardio.map { set ->
-                    if (set.id == cardioId) {
-                        set.copy(duration = duration)
+                val updatedCardio = exercise.listOfCardio.map { cardio ->
+                    if (cardio.id == cardioId) {
+                        cardio.copy(duration = duration)
                     } else {
-                        set
+                        cardio
                     }
                 }
-                exercise.copy(listOfCardio = updateCardio)
+                exercise.copy(listOfCardio = updatedCardio)
             } else {
                 exercise
             }
         }
-        _cardioWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _cardioWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    fun updateDurationInHit(
+        exerciseId: String,
+        hitId: String,
+        duration: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _hitWorkoutState.value
+        }
+
+        val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
+            if (exercise.id == exerciseId) {
+                val updatedHits = exercise.listOfHits.map { hit ->
+                    if (hit.id == hitId) {
+                        hit.copy(duration = duration)
+                    } else {
+                        hit
+                    }
+                }
+                exercise.copy(listOfHits = updatedHits)
+            } else {
+                exercise
+            }
+        }
+
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _hitWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
+    }
+
+    fun updateRestInHit(
+        exerciseId: String,
+        hitId: String,
+        rest: String,
+        edit: Boolean = false
+    ) {
+        val currentWorkout = if (edit) {
+            _workoutToEdit.value
+        } else {
+            _hitWorkoutState.value
+        }
+
+        val updatedExercises = currentWorkout.listOfExercise.map { exercise ->
+            if (exercise.id == exerciseId) {
+                val updatedHits = exercise.listOfHits.map { hit ->
+                    if (hit.id == hitId) {
+                        hit.copy(rest = rest)
+                    } else {
+                        hit
+                    }
+                }
+                exercise.copy(listOfHits = updatedHits)
+            } else {
+                exercise
+            }
+        }
+
+        if (edit) {
+            _workoutToEdit.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        } else {
+            _hitWorkoutState.value = currentWorkout.copy(listOfExercise = updatedExercises)
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -189,6 +547,15 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
 
     fun deleteCardioExercise(exerciseId: String) {
         deleteExercise(_cardioWorkoutState, exerciseId)
+    }
+
+    fun deleteHitExercise(exerciseId: String) {
+        deleteExercise(_hitWorkoutState, exerciseId)
+    }
+
+    //tutaj usuwamy Exercise w ekranie edit
+    fun deleteExerciseFromEdit(exerciseId: String) {
+        deleteExercise(_workoutToEdit, exerciseId)
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -217,12 +584,22 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
         editNameForExercise(_strengthWorkoutState, newExerciseName, exerciseId)
     }
 
+    fun editNameForHitExercise(newExerciseName: String, exerciseId: String) {
+        editNameForExercise(_hitWorkoutState, newExerciseName, exerciseId)
+    }
+
+    // edytujemy name w edit workout screen
+    fun editNameForEditExercise(newExerciseName: String, exerciseId: String) {
+        editNameForExercise(_workoutToEdit, newExerciseName, exerciseId)
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     private fun addExercise(
         workoutStateFlow: MutableStateFlow<WorkoutState>,
         newExerciseName: String
     ) {
+
         val newExercise = ExerciseState(name = newExerciseName)
         val currentWorkoutState = workoutStateFlow.value
         val updatedExercises = currentWorkoutState.listOfExercise + newExercise
@@ -237,5 +614,20 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
         addExercise(_cardioWorkoutState, newExerciseName)
     }
 
+    fun addExerciseForHitWorkout(newExerciseName: String) {
+        addExercise(_hitWorkoutState, newExerciseName)
+    }
+
+    // dodajemy Exercise kiedy edytujemy
+    fun addExerciseForEditWorkout(newExerciseName: String) {
+        addExercise(_workoutToEdit, newExerciseName)
+    }
+
     // ---------------------------------------------------------------------------------------------
+
+    enum class ExerciseElementType {
+        CARDIO,
+        SET,
+        HIT
+    }
 }

@@ -14,23 +14,31 @@ data class CardioState(
     val duration: String = ""
 )
 
+data class HitState(
+    val id: String = UUID.randomUUID().toString(),
+    val rest: String = "",
+    val duration: String = ""
+)
+
 data class ExerciseState(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val listOfSets: List<SetState> = emptyList(),
-    val listOfCardio: List<CardioState> = emptyList()
+    val listOfCardio: List<CardioState> = emptyList(),
+    val listOfHits: List<HitState> = emptyList()
 )
 
 data class WorkoutState(
+    val userId: String = "",
     val id: String = UUID.randomUUID().toString(),
-    val name: String = "",
-    val workOutTime: String = "",
+    val type: String = "",
+    val workoutDate: Long = 0,
+    val workoutTime: Long = 0,
+    val workoutStart: Long = 0,
+    val workoutEnd: Long = 0,
     val listOfExercise: List<ExerciseState> = emptyList(),
-    val status: WorkoutStatus = WorkoutStatus.PLANNED
+    val status: String = "",
 )
 
-enum class WorkoutStatus {
-    PLANNED,
-    IN_PROGRESS,
-    FINISHED,
-}
+
+

@@ -141,9 +141,13 @@ fun MyScaffold(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (currentRoute == "add_workout_screen") "Add Your Workout" else stringResource(
-                                    R.string.app_name
-                                ),
+                                text =
+                                when (currentRoute) {
+                                    "add_workout_screen" -> "Add Your Workout"
+                                    "my_workouts_screen" -> "Workouts"
+                                    "edit_workout_screen" -> "Edit Your Workout"
+                                    else -> stringResource(R.string.app_name)
+                                },
                                 style = MaterialTheme.typography.appBarTitle,
                             )
                         }
@@ -159,6 +163,17 @@ fun MyScaffold(
                         when (currentRoute) {
                             "search_screen" -> {
                                 IconButton(onClick = { onBackArrowClick() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back Icon"
+                                    )
+                                }
+                            }
+
+                            "edit_workout_screen" -> {
+                                IconButton(onClick = {
+                                    addWorkoutScreenDialogState = true
+                                }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = "Back Icon"
@@ -209,9 +224,9 @@ fun MyScaffold(
                                     chatBotViewModel.deleteChatBotConversation(
                                         onSuccess = {
                                             Toast.makeText(
-                                                context,
-                                                "Conversation deleted",
-                                                Toast.LENGTH_SHORT
+                                                    context,
+                                            "Conversation deleted",
+                                            Toast.LENGTH_SHORT
                                             ).show()
                                         }
                                     )

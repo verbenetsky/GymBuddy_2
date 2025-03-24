@@ -60,7 +60,7 @@ class ChatBotViewModel @Inject constructor() : ViewModel() {
                     "Respond in a friendly and knowledgeable manner, using bullet points or short numbered steps when appropriate. " +
                     "Do not answer questions which are not related to gym, motivation, self-improvement, or fitness. " +
                     "Keep your response short but precise. If the user write something unrelated to gym, fitness, motivation or nutrition, " +
-                    "just ask a user what she/he wants to know" + " +" +
+                    "just ask a user what she/he wants to know" +
                     question
 
 

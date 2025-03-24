@@ -1,6 +1,5 @@
 package com.example.gymbuddy.workout
 
-import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,29 +24,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerSelectionMode
 import androidx.compose.material3.TimePickerState
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,7 +47,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -75,29 +63,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.gymbuddy.datasource.StatusOfWorkoutData.statusOfWorkout
-import com.example.gymbuddy.datasource.TypeOfWorkoutData.TypeOfWorkout
 import com.example.gymbuddy.datasource.WorkoutReminderOptions.workoutReminderOptions
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Calendar
-import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun AddWorkoutScreen(
-    innerNavController: NavController,
+fun EditWorkoutScreen(
     navigateToMyWorkoutsScreen: () -> Unit,
-    workoutViewModel: WorkoutViewModel = hiltViewModel(
-        innerNavController.getBackStackEntry("about_screen")
+    innerNavController: NavController, workoutViewModel: WorkoutViewModel = hiltViewModel(
+        innerNavController.getBackStackEntry("about_screen"),
     )
 ) {
+    val workoutToEditState = workoutViewModel.workoutToEdit.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
@@ -116,26 +97,32 @@ fun AddWorkoutScreen(
     val checkedStates =
         remember { mutableStateListOf<Boolean>().apply { addAll(List(workoutReminderOptions.size) { false }) } }
 
-    var statusWorkout by remember { mutableStateOf("Planned") }
-    var typeOfWorkout by remember { mutableStateOf("HIT training") }
+    var statusWorkout by remember { mutableStateOf(workoutToEditState.value.status) } // locked
+    var typeOfWorkout by remember { mutableStateOf(workoutToEditState.value.type) }
 
     val strengthWorkoutState = workoutViewModel.strengthWorkoutState.collectAsStateWithLifecycle()
     val cardioWorkoutState = workoutViewModel.cardioWorkoutState.collectAsStateWithLifecycle()
     val hitWorkoutState = workoutViewModel.hitWorkoutState.collectAsStateWithLifecycle()
 
-    var strengthExerciseLimit by remember { mutableIntStateOf(0) }
-    var cardioExerciseLimit by remember { mutableIntStateOf(0) }
-    var hitExerciseLimit by remember { mutableIntStateOf(0) }
+    var strengthExerciseLimit by remember { mutableIntStateOf(workoutToEditState.value.listOfExercise.size) }
+    var cardioExerciseLimit by remember { mutableIntStateOf(workoutToEditState.value.listOfExercise.size) }
+    var hitExerciseLimit by remember { mutableIntStateOf(workoutToEditState.value.listOfExercise.size) }
 
-    val timePickerState = rememberTimePickerState(
-        initialHour = 12,
-        initialMinute = 0,
-        is24Hour = false
-    )
-
-    var selectedDate by remember { mutableLongStateOf(1L) } // delete
-    var selectedEndTime: TimePickerState? by remember { mutableStateOf(timePickerState) }
-    var selectedStartTime: TimePickerState? by remember { mutableStateOf(timePickerState) }
+    var selectedDate by remember { mutableLongStateOf(workoutToEditState.value.workoutDate) } // delete
+    var selectedEndTime: TimePickerState? by remember {
+        mutableStateOf(
+            longToTimePicker(
+                workoutToEditState.value.workoutEnd
+            )
+        )
+    }
+    var selectedStartTime: TimePickerState? by remember {
+        mutableStateOf(
+            longToTimePicker(
+                workoutToEditState.value.workoutStart
+            )
+        )
+    }
 
     var prevSizeStrength by remember { mutableIntStateOf(strengthWorkoutState.value.listOfExercise.size) }
     var prevSizeCardio by remember { mutableIntStateOf(cardioWorkoutState.value.listOfExercise.size) }
@@ -160,6 +147,11 @@ fun AddWorkoutScreen(
             scrollState.animateScrollTo(scrollState.maxValue)
         }
         prevSizeHit = hitWorkoutState.value.listOfExercise.size
+    }
+
+    LaunchedEffect(Unit) {
+        println("workout to edit: ${workoutToEditState.value}")
+        println("type is: $typeOfWorkout")
     }
 
     Column(
@@ -209,121 +201,82 @@ fun AddWorkoutScreen(
                 }
             }
 
-            if (statusWorkout != "") {
-                Text(
-                    text = "Choose type of your workout: ",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 17.sp)
-                )
+            Spacer(modifier = Modifier.height(10.dp))
 
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    TypeOfWorkout.forEach { workout ->
-                        FilterChip(
-                            selected = typeOfWorkout == workout,
-                            onClick = {
-                                typeOfWorkout = workout
-                            },
-                            enabled = true,
-                            label = {
-                                Text(
-                                    text = workout,
-                                    maxLines = 1,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            },
-                            modifier = Modifier
-                                .height(40.dp)
-                                .padding(horizontal = 5.dp, vertical = 3.dp)
-                                .weight(1f)
-                                .align(Alignment.CenterVertically)
+            Column(modifier = Modifier.padding(4.dp)) {
+                Text(
+                    text = getWorkoutStatusText(statusWorkout),
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 15.sp)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (statusWorkout != "In Progress") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Select Date")
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "Calendar Icon"
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(text = if (selectedDate != 0L) dateConverter(selectedDate) else "")
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+
+                    ) {
+                    Text(text = "Select Start Time")
+                    IconButton(onClick = {
+                        showStartDial = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Clock Icon"
                         )
                     }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(text = selectedStartTime?.let { timePickerStateToString(it) } ?: "")
                 }
-            }
-            if (typeOfWorkout.isNotEmpty()) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Column(modifier = Modifier.padding(4.dp)) {
-                    Text(
-                        text = getWorkoutStatusText(statusWorkout),
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = 15.sp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    if (statusWorkout != "In Progress") {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Select Date")
-                            IconButton(onClick = { showDatePicker = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Calendar Icon"
-                                )
-                            }
-                            Spacer(modifier = Modifier.weight(1f))
-                            Text(text = if (selectedDate != 0L) dateConverter(selectedDate) else "")
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Select End Time")
+                    IconButton(onClick = {
+                        showEndDial = true
+                    }, enabled = selectedStartTime != null) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Clock Icon"
+                        )
                     }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-
-                        ) {
-                        Text(text = "Select Start Time")
-                        IconButton(onClick = {
-                            showStartDial = true
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = "Clock Icon"
-                            )
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(text = selectedStartTime?.let { timePickerStateToString(it) } ?: "")
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "Select End Time")
-                        IconButton(onClick = {
-                            showEndDial = true
-                        }, enabled = selectedStartTime != null) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = "Clock Icon"
-                            )
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(text = selectedEndTime?.let { timePickerStateToString(it) } ?: "")
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    HorizontalDivider(thickness = 2.dp)
-
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(text = selectedEndTime?.let { timePickerStateToString(it) } ?: "")
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                HorizontalDivider(thickness = 2.dp)
+
             }
         }
 
-        if (typeOfWorkout == "Strength training") {
+        if (typeOfWorkout == "Strength Workout") {
 
-            strengthWorkoutState.value.listOfExercise.forEachIndexed { index, exercise ->
+            workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
                 //key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf("Click to change the name") }
+                var localTempName by remember { mutableStateOf(exercise.name) }
 
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Row(
@@ -350,7 +303,7 @@ fun AddWorkoutScreen(
                                 fontSize = 12.sp
                             ),
                             keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForStrengthExercise(
+                                workoutViewModel.editNameForEditExercise(
                                     localTempName,
                                     exercise.id
                                 )
@@ -373,7 +326,7 @@ fun AddWorkoutScreen(
                                 .offset(x = (-15).dp)
                                 .onFocusChanged { focusState ->
                                     if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForStrengthExercise(
+                                        workoutViewModel.editNameForEditExercise(
                                             localTempName,
                                             exercise.id
                                         )
@@ -383,7 +336,7 @@ fun AddWorkoutScreen(
                                 })
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteStrengthExercise(exercise.id)
+                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
                             strengthExerciseLimit--
                             Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
                                 .show()
@@ -414,7 +367,7 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = set.kg,
                             onValueChange = {
-                                workoutViewModel.updateKgInSet(exercise.id, set.id, it)
+                                workoutViewModel.updateKgInSet(exercise.id, set.id, it, true)
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(color = Color.White),
@@ -429,7 +382,7 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = set.reps,
                             onValueChange = {
-                                workoutViewModel.updateRepsInSet(exercise.id, set.id, it)
+                                workoutViewModel.updateRepsInSet(exercise.id, set.id, it, true)
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(color = Color.White),
@@ -441,7 +394,7 @@ fun AddWorkoutScreen(
                         )
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteSetFromExercise(set.id, exercise.id)
+                            workoutViewModel.deleteSetFromEditExercise(set.id, exercise.id)
                         }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -452,13 +405,13 @@ fun AddWorkoutScreen(
                 }
                 Button(
                     onClick = {
-                        if (strengthWorkoutState.value.listOfExercise.lastIndex == index) {
+                        if (workoutToEditState.value.listOfExercise.lastIndex == index) {
                             coroutineScope.launch {
                                 delay(100)
                                 scrollState.animateScrollTo(scrollState.maxValue)
                             }
                         }
-                        workoutViewModel.addSetToExercise(exercise.id)
+                        workoutViewModel.addSetToEditExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
                     shape = RoundedCornerShape(4.dp),
@@ -468,13 +421,10 @@ fun AddWorkoutScreen(
                 }
             }
 
-            if (selectedDate != 0L && selectedEndTime != null && selectedStartTime != null ||
-                (statusWorkout == "In Progress" && selectedEndTime != null && selectedStartTime != null)
-            ) {
 
                 Button(
                     onClick = {
-                        workoutViewModel.addExerciseForStrengthWorkout("")
+                        workoutViewModel.addExerciseForEditWorkout("")
                         strengthExerciseLimit++
                     },
                     shape = RoundedCornerShape(4.dp),
@@ -490,9 +440,8 @@ fun AddWorkoutScreen(
                     )
                 }
 
-
                 Button(onClick = {
-                    val updatedWorkout = strengthWorkoutState.value.copy(
+                    val updatedWorkout = workoutToEditState.value.copy(
                         type = "Strength Workout",
                         userId = Firebase.auth.currentUser!!.uid,
                         workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
@@ -508,46 +457,48 @@ fun AddWorkoutScreen(
                         workoutSaveToDb = updatedWorkout
                         showBottomSheet = true
                     } else {
-                        workoutViewModel.saveWorkoutToDb(
-                            workoutState = updatedWorkout,
-                            onSuccess = {
-                                showBottomSheet = false
-                                navigateToMyWorkoutsScreen()
-                                Toast.makeText(
-                                    context,
-                                    "Workout successfully added.",
-                                    Toast.LENGTH_SHORT
-                                )
-                                    .show()
-                            })
+                        workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
+                            navigateToMyWorkoutsScreen()
+                            Toast.makeText(
+                                context,
+                                "Workout successfully updated.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }, {
+                            Toast.makeText(
+                                context,
+                                "Something gone wrong!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        })
                     }
                 },
                     shape = RoundedCornerShape(4.dp),
                     enabled =
-                    strengthWorkoutState.value.listOfExercise.all { it.listOfSets.isNotEmpty() }
-                            && strengthWorkoutState.value.listOfExercise.isNotEmpty()
-                            && strengthWorkoutState.value.listOfExercise.all { it.listOfSets.all { it.kg != "" } }
-                            && strengthWorkoutState.value.listOfExercise.all { it.listOfSets.all { it.reps != "" } },
+                    workoutToEditState.value.listOfExercise.all { it.listOfSets.isNotEmpty() }
+                            && workoutToEditState.value.listOfExercise.isNotEmpty()
+                            && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.kg != "" } }
+                            && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.reps != "" } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
 
                 ) {
                     Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
+                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-            }
+
         }
 
-        if (typeOfWorkout == "Cardio session") {
+        if (typeOfWorkout == "Cardio Workout") {
 
-            cardioWorkoutState.value.listOfExercise.forEachIndexed { index, exercise ->
+            workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
                 //key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf("Click to change the name") }
+                var localTempName by remember { mutableStateOf(exercise.name) }
 
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Row(
@@ -573,7 +524,7 @@ fun AddWorkoutScreen(
                                 color = Color.White, fontSize = 12.sp
                             ),
                             keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForCardioExercise(
+                                workoutViewModel.editNameForEditExercise(
                                     localTempName, exercise.id
                                 )
                                 keyboardController?.hide()
@@ -594,7 +545,7 @@ fun AddWorkoutScreen(
                                 .offset(x = (-15).dp)
                                 .onFocusChanged { focusState ->
                                     if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForCardioExercise(
+                                        workoutViewModel.editNameForEditExercise(
                                             localTempName,
                                             exercise.id
                                         )
@@ -604,7 +555,7 @@ fun AddWorkoutScreen(
                                 })
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteCardioExercise(exercise.id)
+                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
                             cardioExerciseLimit--
                             Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
                                 .show()
@@ -635,7 +586,12 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = cardio.kcal,
                             onValueChange = {
-                                workoutViewModel.updateKcalInCardio(exercise.id, cardio.id, it)
+                                workoutViewModel.updateKcalInCardio(
+                                    exercise.id,
+                                    cardio.id,
+                                    it,
+                                    true
+                                )
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
@@ -652,7 +608,12 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = cardio.duration,
                             onValueChange = {
-                                workoutViewModel.updateDurationInCardio(exercise.id, cardio.id, it)
+                                workoutViewModel.updateDurationInCardio(
+                                    exercise.id,
+                                    cardio.id,
+                                    it,
+                                    true
+                                )
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
@@ -667,7 +628,7 @@ fun AddWorkoutScreen(
                         )
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteCardioFromExercise(cardio.id, exercise.id)
+                            workoutViewModel.deleteCardioFromEditExercise(cardio.id, exercise.id)
                         }) {
                             Icon(
                                 imageVector = Icons.Default.Delete, contentDescription = null
@@ -683,7 +644,7 @@ fun AddWorkoutScreen(
                                 scrollState.animateScrollTo(scrollState.maxValue)
                             }
                         }
-                        workoutViewModel.addCardioToExercise(exercise.id)
+                        workoutViewModel.addCardioToEditExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
                     shape = RoundedCornerShape(4.dp),
@@ -692,13 +653,10 @@ fun AddWorkoutScreen(
                     Text("Add a cardio")
                 }
             }
-            if (selectedDate != 0L && selectedEndTime != null && selectedStartTime != null ||
-                (statusWorkout == "In Progress" && selectedEndTime != null && selectedStartTime != null)
-            ) {
-
+            if (statusWorkout == "In Progress") {
                 Button(
                     onClick = {
-                        workoutViewModel.addExerciseForCardioWorkout("")
+                        workoutViewModel.addExerciseForEditWorkout("")
                         cardioExerciseLimit++
                     },
                     shape = RoundedCornerShape(4.dp),
@@ -716,7 +674,7 @@ fun AddWorkoutScreen(
 
 
                 Button(onClick = {
-                    val updatedWorkout = cardioWorkoutState.value.copy(
+                    val updatedWorkout = workoutToEditState.value.copy(
                         type = "Cardio Workout",
                         userId = Firebase.auth.currentUser!!.uid,
                         workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
@@ -732,34 +690,36 @@ fun AddWorkoutScreen(
                         workoutSaveToDb = updatedWorkout
                         showBottomSheet = true
                     } else {
-                        workoutViewModel.saveWorkoutToDb(
-                            workoutState = updatedWorkout,
-                            onSuccess = {
-                                showBottomSheet = false
-                                navigateToMyWorkoutsScreen()
-                                Toast.makeText(
-                                    context,
-                                    "Workout successfully added.",
-                                    Toast.LENGTH_SHORT
-                                )
-                                    .show()
-                            })
+                        workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
+                            navigateToMyWorkoutsScreen()
+                            Toast.makeText(
+                                context,
+                                "Workout successfully updated.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }, {
+                            Toast.makeText(
+                                context,
+                                "Something gone wrong!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        })
                     }
 
                 },
                     shape = RoundedCornerShape(4.dp),
                     enabled =
-                    cardioWorkoutState.value.listOfExercise.all { it.listOfCardio.isNotEmpty() }
-                            && cardioWorkoutState.value.listOfExercise.isNotEmpty()
-                            && cardioWorkoutState.value.listOfExercise.all { it.listOfCardio.all { it.kcal != "" } }
-                            && cardioWorkoutState.value.listOfExercise.all { it.listOfCardio.all { it.duration != "" } },
+                    workoutToEditState.value.listOfExercise.all { it.listOfCardio.isNotEmpty() }
+                            && workoutToEditState.value.listOfExercise.isNotEmpty()
+                            && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.kcal != "" } }
+                            && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.duration != "" } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
 
                 ) {
                     Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
+                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -767,12 +727,12 @@ fun AddWorkoutScreen(
             }
         }
 
-        if (typeOfWorkout == "HIT training") {
+        if (typeOfWorkout == "HIT Workout") {
 
-            hitWorkoutState.value.listOfExercise.forEachIndexed { index, exercise ->
+            workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
                 //key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf("Click to change the name") }
+                var localTempName by remember { mutableStateOf(exercise.name) }
 
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Row(
@@ -798,7 +758,7 @@ fun AddWorkoutScreen(
                                 color = Color.White, fontSize = 12.sp
                             ),
                             keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForHitExercise(
+                                workoutViewModel.editNameForEditExercise(
                                     localTempName, exercise.id
                                 )
                                 keyboardController?.hide()
@@ -819,7 +779,7 @@ fun AddWorkoutScreen(
                                 .offset(x = (-15).dp)
                                 .onFocusChanged { focusState ->
                                     if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForHitExercise(
+                                        workoutViewModel.editNameForEditExercise(
                                             localTempName,
                                             exercise.id
                                         )
@@ -829,7 +789,7 @@ fun AddWorkoutScreen(
                                 })
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteHitExercise(exercise.id)
+                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
                             hitExerciseLimit--
                             Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
                                 .show()
@@ -859,7 +819,7 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = hit.duration,
                             onValueChange = {
-                                workoutViewModel.updateDurationInHit(exercise.id, hit.id, it)
+                                workoutViewModel.updateDurationInHit(exercise.id, hit.id, it, true)
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
@@ -876,7 +836,7 @@ fun AddWorkoutScreen(
                         BasicTextField(
                             value = hit.rest,
                             onValueChange = {
-                                workoutViewModel.updateRestInHit(exercise.id, hit.id, it)
+                                workoutViewModel.updateRestInHit(exercise.id, hit.id, it, true)
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
@@ -891,7 +851,7 @@ fun AddWorkoutScreen(
                         )
 
                         IconButton(onClick = {
-                            workoutViewModel.deleteHitFromExercise(hit.id, exercise.id)
+                            workoutViewModel.deleteHitFromEditExercise(hit.id, exercise.id)
                         }) {
                             Icon(
                                 imageVector = Icons.Default.Delete, contentDescription = null
@@ -901,13 +861,13 @@ fun AddWorkoutScreen(
                 }
                 Button(
                     onClick = {
-                        if (hitWorkoutState.value.listOfExercise.lastIndex == index) {
+                        if (workoutToEditState.value.listOfExercise.lastIndex == index) {
                             coroutineScope.launch {
                                 delay(100)
                                 scrollState.animateScrollTo(scrollState.maxValue)
                             }
                         }
-                        workoutViewModel.addHitToExercise(exercise.id)
+                        workoutViewModel.addHitToEditExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
                     shape = RoundedCornerShape(4.dp),
@@ -916,77 +876,74 @@ fun AddWorkoutScreen(
                     Text("Add a HIT")
                 }
             }
-            if (selectedDate != 0L && selectedEndTime != null && selectedStartTime != null ||
-                statusWorkout == "In Progress" && selectedEndTime != null && selectedStartTime != null
-            ) {
 
-                Button(
-                    onClick = {
-                        workoutViewModel.addExerciseForHitWorkout("")
-                        hitExerciseLimit++
-                    },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled = if (hitExerciseLimit == 20) false else true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "Add an exercise ($hitExerciseLimit/20)",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-
-                Button(onClick = {
-                    val updatedWorkout = hitWorkoutState.value.copy(
-                        type = "HIT Workout",
-                        userId = Firebase.auth.currentUser!!.uid,
-                        workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
-                        workoutStart = timePickerToLong(selectedStartTime!!),
-                        workoutEnd = timePickerToLong(selectedEndTime!!),
-                        workoutTime = calculateWorkoutDuration(
-                            selectedStartTime!!,
-                            selectedEndTime!!
-                        ),
-                        status = statusWorkout
-                    )
-                    if (statusWorkout == "Planned") {
-                        workoutSaveToDb = updatedWorkout
-                        showBottomSheet = true
-                    } else {
-                        workoutViewModel.saveWorkoutToDb(
-                            workoutState = updatedWorkout,
-                            onSuccess = {
-                                showBottomSheet = false
-                                navigateToMyWorkoutsScreen()
-                                Toast.makeText(
-                                    context,
-                                    "Workout successfully added.",
-                                    Toast.LENGTH_SHORT
-                                )
-                                    .show()
-                            })
-                    }
-
+            Button(
+                onClick = {
+                    workoutViewModel.addExerciseForEditWorkout("")
+                    hitExerciseLimit++
                 },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled = hitWorkoutState.value.listOfExercise.all { it.listOfHits.isNotEmpty() }
-                            && hitWorkoutState.value.listOfExercise.isNotEmpty()
-                            && hitWorkoutState.value.listOfExercise.all { it.listOfHits.all { it.duration != "" } }
-                            && hitWorkoutState.value.listOfExercise.all { it.listOfHits.all { it.rest != "" } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = if (hitExerciseLimit == 20) false else true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Add an exercise ($hitExerciseLimit/20)",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                ) {
-                    Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+            Button(onClick = {
+                val updatedWorkout = workoutToEditState.value.copy(
+                    type = "HIT Workout",
+                    userId = Firebase.auth.currentUser!!.uid,
+                    workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
+                    workoutStart = timePickerToLong(selectedStartTime!!),
+                    workoutEnd = timePickerToLong(selectedEndTime!!),
+                    workoutTime = calculateWorkoutDuration(
+                        selectedStartTime!!,
+                        selectedEndTime!!
+                    ),
+                    status = statusWorkout
+                )
+                if (statusWorkout == "Planned") {
+                    workoutSaveToDb = updatedWorkout
+                    showBottomSheet = true
+                } else {
+                    workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
+                        navigateToMyWorkoutsScreen()
+                        Toast.makeText(
+                                context,
+                                "Workout successfully updated.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                    }, {
+                        Toast.makeText(
+                            context,
+                            "Something gone wrong!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    })
                 }
+            },
+                shape = RoundedCornerShape(4.dp),
+                enabled = workoutToEditState.value.listOfExercise.all { it.listOfHits.isNotEmpty() }
+                        && workoutToEditState.value.listOfExercise.isNotEmpty()
+                        && workoutToEditState.value.listOfExercise.all { it.listOfHits.all { it.duration != "" } }
+                        && workoutToEditState.value.listOfExercise.all { it.listOfHits.all { it.rest != "" } },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+            ) {
+                Text(
+                    text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
             }
         }
     }
@@ -1042,7 +999,7 @@ fun AddWorkoutScreen(
                             navigateToMyWorkoutsScreen()
                             Toast.makeText(
                                 context,
-                                "Workout successfully added.",
+                                "Workout successfully updated.",
                                 Toast.LENGTH_SHORT
                             )
                                 .show()
@@ -1057,234 +1014,14 @@ fun AddWorkoutScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DatePickerModal2(
-    onDateSelected: (Long?) -> Unit,
-    onDismiss: () -> Unit,
-    finishedWorkout: Boolean,
-) {
-    val today = LocalDate.now()
-    val currentTimeMillis = System.currentTimeMillis()
-
-    val selectableDates: SelectableDates = if (finishedWorkout) {
-        object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                val date = Instant.ofEpochMilli(utcTimeMillis)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                return !date.isAfter(today)
-            }
-        }
-    } else {
-        object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                val date = Instant.ofEpochMilli(utcTimeMillis)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                return !date.isBefore(today)  // Tylko dzisiejsza i przyszłe daty
-            }
-        }
-    }
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = currentTimeMillis,
-        selectableDates = selectableDates
-    )
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                onDateSelected(datePickerState.selectedDateMillis)
-                onDismiss()
-            }) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    ) {
-        DatePicker(state = datePickerState)
-    }
-}
-
-
-fun getWorkoutStatusText(status: String): String {
-    return when (status) {
-        "Finished" -> "Please specify the dates and times at which you started and finished your workout."
-        "Planned" -> "Select the date and time for your upcoming workout."
-        else -> "Select the start time of your workout and its planned end time."
-    }
-}
-
-fun dateConverter(timestamp: Long): String {
-    val instant = Instant.ofEpochMilli(timestamp)
-    val localDate: LocalDateTime? = instant.atZone(ZoneId.systemDefault()).toLocalDateTime()
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yy", Locale.getDefault())
-    return if (localDate != null) {
-        localDate.format(formatter)
-    } else {
-        ""
-    }
-}
-
-@SuppressLint("DefaultLocale")
-@OptIn(ExperimentalMaterial3Api::class)
-fun timePickerStateToString(timePickerState: TimePickerState): String {
-    return String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TimeSelection(
-    onConfirm: (TimePickerState) -> Unit,
-    onDismiss: () -> Unit,
-    startTime: TimePickerState?,
-) {
-    val currentTime = Calendar.getInstance()
-
-    val timePickerState = rememberTimePickerState(
-        initialHour = currentTime.get(Calendar.HOUR_OF_DAY),
-        initialMinute = currentTime.get(Calendar.MINUTE),
-        is24Hour = true,
-    )
-
-    val isTimeValid = startTime?.let {
-        val startTotalMinutes = it.hour * 60 + it.minute
-        val selectedTotalMinutes = timePickerState.hour * 60 + timePickerState.minute
-        selectedTotalMinutes >= startTotalMinutes
-    } ?: true
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Select Time") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                TimePicker(
-                    state = timePickerState,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (!isTimeValid) {
-                    Text(
-                        text = "End time must be after start time.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(timePickerState) },
-                shape = RoundedCornerShape(4.dp),
-                enabled = isTimeValid
-            ) {
-                Text("Ok")
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-//trwanie treningu w milisekundach
-@OptIn(ExperimentalMaterial3Api::class)
-fun calculateWorkoutDuration(startTime: TimePickerState, endTime: TimePickerState): Long {
-    val startMinutes = startTime.hour * 60 + startTime.minute
-    val endMinutes = endTime.hour * 60 + endTime.minute
-    return (endMinutes - startMinutes).toLong() * 60000L
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-fun timePickerToLong(time: TimePickerState): Long {
-    return (time.hour * 60 + time.minute) * 60000L
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ModalBottomSheetNotification(
-    stateList: SnapshotStateList<Boolean>,
-    sheetState: SheetState,
-    sheetStateChange: (Boolean) -> Unit,
-    onNoClick: () -> Unit,
-    onSetNotificationClick: () -> Unit
-) {
-    ModalBottomSheet(onDismissRequest = { sheetStateChange(false) }, sheetState = sheetState) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        )
-        {
-            Text(
-                "Do you want to receive a Notification prior to your workout?",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp)
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            workoutReminderOptions.chunked(2).forEachIndexed { rowIndex, rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        rowItems.forEachIndexed { colIndex, item ->
-                            val index = rowIndex * 2 + colIndex
-
-                            Checkbox(
-                                checked = stateList[index],
-                                onCheckedChange = { newValue -> stateList[index] = newValue }
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = item, modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onSetNotificationClick() },
-                    enabled = stateList.any { it }, // if even one element is false (not selected) than false
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text("Set Notification")
-                }
-
-                Spacer(Modifier.width(10.dp))
-
-                Button(
-                    onClick = {
-                        onNoClick()
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = stateList.all { !it },
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text("No")
-                }
-            }
-        }
+fun longToTimePicker(longTime: Long): TimePickerState {
+    val totalMinutes = (longTime / 60000L).toInt()
+    val hour = totalMinutes / 60
+    val minute = totalMinutes % 60
+    return object : TimePickerState {
+        override var hour: Int = hour
+        override var minute: Int = minute
+        override var selection: TimePickerSelectionMode = TimePickerSelectionMode.Hour
+        override var is24hour: Boolean = true
     }
 }

@@ -45,6 +45,7 @@ import com.example.gymbuddy.scaffoldscreens.MyWorkoutsScreen
 import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.example.gymbuddy.scaffoldscreens.SearchScreen
 import com.example.gymbuddy.workout.AddWorkoutScreen
+import com.example.gymbuddy.workout.EditWorkoutScreen
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
@@ -653,10 +654,21 @@ fun NavGraph(
                     composable(route = "my_workouts_screen") {
                         MyWorkoutsScreen(
                             navigateToAddWorkoutScreen = { innerNavController.navigate("add_workout_screen") },
+                            innerNavController = innerNavController,
+                            navigateToEditScreen = { innerNavController.navigate("edit_workout_screen") },
                         )
                     }
                     composable(route = "add_workout_screen") {
-                        AddWorkoutScreen()
+                        AddWorkoutScreen(
+                            navigateToMyWorkoutsScreen = { innerNavController.navigate("my_workouts_screen") },
+                            innerNavController = innerNavController,
+                        )
+                    }
+                    composable(route = "edit_workout_screen") {
+                        EditWorkoutScreen(
+                            navigateToMyWorkoutsScreen = { innerNavController.navigate("my_workouts_screen") },
+                            innerNavController = innerNavController,
+                        )
                     }
                 }
             }
