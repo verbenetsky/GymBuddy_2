@@ -2,13 +2,13 @@ package com.example.gymbuddy.scaffoldscreens
 
 import android.annotation.SuppressLint
 import android.widget.Toast
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -67,8 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.gymbuddy.chat.ChatViewModel
 import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.datasource.SortAndFilterOption
 import com.example.gymbuddy.datasource.SortAndFilterOption.additionalSortingOptionCardioWorkout
 import com.example.gymbuddy.datasource.SortAndFilterOption.additionalSortingOptionHITWorkout
 import com.example.gymbuddy.datasource.SortAndFilterOption.additionalSortingOptionStrengthWorkout
@@ -76,6 +77,7 @@ import com.example.gymbuddy.datasource.SortAndFilterOption.typeOptions
 import com.example.gymbuddy.datasource.SortAndFilterOption.sortingOptions
 import com.example.gymbuddy.datasource.SortAndFilterOption.statusOptions
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
+import com.example.gymbuddy.utils.CommonUtils.workoutStateToMarkdown
 import com.example.gymbuddy.workout.WorkoutState
 import com.example.gymbuddy.workout.WorkoutViewModel
 import com.example.gymbuddy.workout.dateConverter
@@ -88,17 +90,21 @@ import java.util.Locale
 fun MyWorkoutsScreen(
     innerNavController: NavController,
     friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel(),
     navigateToAddWorkoutScreen: () -> Unit,
     navigateToEditScreen: () -> Unit,
     workoutViewModel: WorkoutViewModel = hiltViewModel(
         innerNavController.getBackStackEntry("about_screen")
     ),
-    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var selectedWorkoutForDeletion by remember { mutableStateOf<WorkoutState?>(null) }
     var dialogState by remember { mutableStateOf(false) }
     val workoutListState = workoutViewModel.listOfWorkouts.collectAsState()
+    val workoutsState =
+        workoutViewModel.workoutsState.collectAsState() // stan calej listy workouts (Loading or Loaded)
+
+    var workoutToShare by remember { mutableStateOf(WorkoutState()) }
 
     val sheetStateShareWithFriend = rememberModalBottomSheetState()
     var showBottomSheetShareWithFriend by remember { mutableStateOf(false) }
@@ -117,7 +123,89 @@ fun MyWorkoutsScreen(
     val checkedStatesStatus =
         remember { mutableStateListOf<Boolean>().apply { addAll(List(statusOptions.size) { false }) } }
 
-    val checkedType by remember { mutableStateOf("") }
+    var mapOfFilters by remember { mutableStateOf<Map<String, Any>>(emptyMap()) }
+
+    var sortingOption by remember { mutableStateOf("workoutDate") }
+    var sortingDirection by remember { mutableStateOf(Query.Direction.ASCENDING) }
+
+    val tempFriendIdToFindAChannel by remember { mutableStateOf("") }
+
+    // od old wiecej milisekund minelo
+    when (selectedOption) {
+        "Date from old to new" -> {
+            sortingOption = "workoutDate"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "Date from new to old" -> {
+            sortingOption = "workoutDate"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+
+        "Amount of exercise descending" -> {
+            sortingOption = "exerciseCount"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+
+        "Amount of exercise ascending" -> {
+            sortingOption = "exerciseCount"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "Duration ascending" -> {
+            sortingOption = "workoutTime"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "Duration descending" -> {
+            sortingOption = "workoutTime"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+
+        "Calories burned ascending" -> {
+            sortingOption = "caloriesBurned"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "Calories burned descending" -> {
+            sortingOption = "caloriesBurned"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+
+        "Overall lifted descending" -> {
+            sortingOption = "liftedKg"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+
+        "Overall lifted ascending" -> {
+            sortingOption = "liftedKg"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "HITs lasted ascending" -> {
+            sortingOption = "hitsLasted"
+            sortingDirection = Query.Direction.ASCENDING
+        }
+
+        "HITs lasted descending" -> {
+            sortingOption = "hitsLasted"
+            sortingDirection = Query.Direction.DESCENDING
+        }
+    }
+
+    mapOfFilters = buildMap {
+        val statuses = mutableListOf<String>()
+        if (checkedStatesStatus[0]) statuses.add("Finished")
+        if (checkedStatesStatus[1]) statuses.add("Planned")
+        if (checkedStatesStatus[2]) statuses.add("In Progress")
+        if (statuses.isNotEmpty()) put("status", statuses)
+
+        val types = mutableListOf<String>()
+        if (checkedStatesType[0]) types.add("Strength Workout")
+        if (checkedStatesType[1]) types.add("HIT Workout")
+        if (checkedStatesType[2]) types.add("Cardio Workout")
+        if (types.isNotEmpty()) put("type", types)
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -129,8 +217,7 @@ fun MyWorkoutsScreen(
             }
         },
         content = {
-
-            LazyColumn {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item {
                     Card(
                         modifier = Modifier
@@ -166,33 +253,69 @@ fun MyWorkoutsScreen(
                         }
                     }
                 }
-                items(workoutListState.value) { workout ->
-                    Workout(
-                        onShareClick = {
-                            if (friendsList.value.isEmpty()) {
-                                Toast.makeText(
-                                    context,
-                                    "You don't have any friends to share with.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                showBottomSheetShareWithFriend = true
-                            }
-                        },
-                        onCardClick = {
-                            workoutViewModel.tryToEditWorkout(workout)
-                            navigateToEditScreen()
-                        },
-                        onEditClick = {
-                            workoutViewModel.tryToEditWorkout(workout)
-                            navigateToEditScreen()
-                        },
-                        workoutState = workout,
-                        onDeleteClick = {
-                            dialogState = true
-                            selectedWorkoutForDeletion = workout
+                if (workoutsState.value == WorkoutViewModel.WorkoutsState.Loading) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
                         }
-                    )
+                    }
+                } else if (workoutsState.value == WorkoutViewModel.WorkoutsState.Loaded) {
+                    items(workoutListState.value) { workout ->
+                        Workout(
+                            onShareClick = {
+                                if (friendsList.value.isEmpty()) {
+                                    Toast.makeText(
+                                        context,
+                                        "You don't have any friends to share with.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    workoutToShare = workout
+                                    showBottomSheetShareWithFriend = true
+                                }
+                            },
+                            onCardClick = {
+                                workoutViewModel.tryToEditWorkout(workout)
+                                navigateToEditScreen()
+                            },
+                            onEditClick = {
+                                workoutViewModel.tryToEditWorkout(workout)
+                                navigateToEditScreen()
+                            },
+                            workoutState = workout,
+                            onDeleteClick = {
+                                dialogState = true
+                                selectedWorkoutForDeletion = workout
+                            }
+                        )
+                    }
+                } else if (workoutsState.value == WorkoutViewModel.WorkoutsState.Loaded && workoutListState.value.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Nothing found",
+                                style = MaterialTheme.typography.displayLarge.copy(fontSize = 25.sp)
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Nothing found",
+                                style = MaterialTheme.typography.displayLarge.copy(fontSize = 25.sp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -219,7 +342,42 @@ fun MyWorkoutsScreen(
                     sheetState = sheetStateShareWithFriend,
                     sheetStateChange = { newValue -> showBottomSheetShareWithFriend = newValue },
                     friendsList = friendsList.value,
-                    onSendWorkoutToFriendClick = { },
+                    onShareWorkoutWithFriendClick = { friendInfo ->
+
+                        chatViewModel.findChannelIdUsingUsersId(
+                            friendInfo.userId,
+                            onSuccess = { channelId ->
+                                if (channelId != null) {
+                                    chatViewModel.sendMessage(
+                                        channelID = channelId,
+                                        messageText = workoutStateToMarkdown(workoutToShare),
+                                        image = null,
+                                        receiverFcmToken = friendInfo.fcmToken,
+                                        isShareWorkoutMessage = true,
+                                        senderUsername = ""
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        "Workout Send",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Try again later",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }, onFailure = {
+                                Toast.makeText(
+                                    context,
+                                    "Something gone terribly wrong! Try again",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            })
+                        showBottomSheetShareWithFriend = false
+
+                    },
                 )
             }
 
@@ -232,9 +390,12 @@ fun MyWorkoutsScreen(
                     statusList = checkedStatesStatus,
                     onSaveClick = {
                         workoutViewModel.listenForWorkouts(
-                            filters = mapOf()
+                            sortField = sortingOption,
+                            direction = sortingDirection,
+                            filters = mapOfFilters
                         )
                         showBottomSheetSortFilter = false
+
                     },
                     sheetStateChange = { newValue -> showBottomSheetSortFilter = newValue },
                 )
@@ -244,7 +405,7 @@ fun MyWorkoutsScreen(
 }
 
 @Composable
-fun Workout(
+fun Workout( // singel record of workout
     onShareClick: () -> Unit,
     onCardClick: () -> Unit,
     onEditClick: () -> Unit,
@@ -319,7 +480,11 @@ fun Workout(
                     )
                 )
 
-                Text(text = if (workoutState.listOfExercise.size <= 1) "${workoutState.listOfExercise.size} exercise" else "${workoutState.listOfExercise.size} exercises")
+                Text(
+                    text = if (workoutState.listOfExercise.size <= 1) "${workoutState.listOfExercise.size} " +
+                            "exercise" else "${workoutState.listOfExercise.size} exercises",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -377,6 +542,7 @@ fun Workout(
 
                 Text(
                     text = message,
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1
                 )
             }
@@ -434,7 +600,7 @@ fun AlertDialogDeleteWorkout(
 fun ModalBottomSheetSendWorkoutToFriend(
     sheetState: SheetState,
     friendsList: List<UserFoundInformation>,
-    onSendWorkoutToFriendClick: () -> Unit,
+    onShareWorkoutWithFriendClick: (UserFoundInformation) -> Unit,
     sheetStateChange: (Boolean) -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = { sheetStateChange(false) }, sheetState = sheetState) {
@@ -455,7 +621,9 @@ fun ModalBottomSheetSendWorkoutToFriend(
                 items(friendsList) { friend ->
                     SingleRecordOfFriendsLists(
                         userFoundInformation = friend,
-                        onRecordClick = { onSendWorkoutToFriendClick() },
+                        onRecordClick = {
+                            onShareWorkoutWithFriendClick(friend)
+                        },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -464,16 +632,6 @@ fun ModalBottomSheetSendWorkoutToFriend(
     }
 }
 
-// sort by:
-// date from old to new
-// date new to old
-//
-// exercise descending
-// exercise ascending
-//
-// duration descending
-// duration ascending
-//
 // filter:
 // Strength Workout \
 // HIT Workout       | -> jesli jedno z tych to otwieraja sie nowe opcje sortingu
@@ -504,7 +662,7 @@ fun ModalBottomSheetSortFilter(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-            var groups by remember { mutableStateOf<List<List<String>>>(listOf(sortingOptions)) }
+            var groups by remember { mutableStateOf(listOf(sortingOptions)) }
 
             groups = buildList {
                 add(sortingOptions)
@@ -550,10 +708,10 @@ fun ModalBottomSheetSortFilter(
             HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(horizontal = 16.dp))
             Spacer(modifier = Modifier.height(16.dp))
 
-            Column() {
-                typeOptions.forEachIndexed { index, item -> // 1-Finished
-                    Row(                                    // 2-Planned
-                        modifier = Modifier                 // 3-In Progress
+            Column {
+                typeOptions.forEachIndexed { index, item -> // 1-Strength Workout
+                    Row(                                    // 2-HIT Workout
+                        modifier = Modifier                 // 3-Cardio Workout
                             .fillMaxWidth()
                             .padding(start = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -573,7 +731,9 @@ fun ModalBottomSheetSortFilter(
 
 
             Column {
-                statusOptions.forEachIndexed { index, item ->
+                statusOptions.forEachIndexed { index, item ->   // 1-Finished
+                    // 2-Planned
+                    // 3-In Progress
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -603,7 +763,6 @@ fun ModalBottomSheetSortFilter(
         }
     }
 }
-
 
 
 

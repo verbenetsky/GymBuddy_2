@@ -244,7 +244,10 @@ class UserManagementViewModel(
         viewModelScope.launch {
             val userId = firebaseAuth.currentUser?.uid
             if (userId != null) {
-                db.collection("users").document(userId).get().addOnSuccessListener { document ->
+                db.collection("users")
+                    .document(userId)
+                    .get()
+                    .addOnSuccessListener { document ->
                     if (document.exists()) {
                         val userInformation = document.toObject(UserInformation::class.java)
                         if (userInformation != null) {

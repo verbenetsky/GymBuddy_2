@@ -1,8 +1,11 @@
 package com.example.gymbuddy.workout
 
-import androidx.compose.runtime.State
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.pushnotification.ReminderWorkoutDto
+import com.example.gymbuddy.utils.CommonUtils.longToString
+import com.example.gymbuddy.utils.CommonUtils.formatTimestamp
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Query
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ListenerRegistration
@@ -10,6 +13,8 @@ import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +47,9 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
     private val _workoutToEdit = MutableStateFlow(WorkoutState())
     val workoutToEdit: StateFlow<WorkoutState> = _workoutToEdit.asStateFlow()
 
+    private val _workoutsState = MutableStateFlow<WorkoutsState>(WorkoutsState.Loading)
+    val workoutsState = _workoutsState.asStateFlow()
+
     private var workoutsListenerRegistration: ListenerRegistration? = null
 
     // ---------------------------------------------------------------------------------------------
@@ -52,26 +60,6 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
 
     // ogl jak korzystamy z korutyny to nie mieszamy style, czyli nie dajemy addOnSuccessListener
     // i addOnFailureListener, trzeba korzystac z metod opartych na suspend fun
-
-    //sortowac mozna bedzie po:
-    // Status: Finished, Planned, In Progress - jesli tylko sam status to 0 indeksow
-    // Type: Cardio Workout, HIT Workout, Strength Workout - jesli tylko sam type to 0 indeksow
-    // jesli np:
-
-    //  - Status: Finished i Type: Cardio Workout - to juz 1 index
-    //  - Status: Planned i Type: Cardio Workout - to juz 1 index
-    //  - Status: In Progress i Type: Cardio Workout - to juz 1 index
-
-    //  - Status: Finished i Type: HIT Workout - to juz 1 index
-    //  - Status: Planned i Type: HIT Workout - to juz 1 index
-    //  - Status: In Progress i Type: HIT Workout - to juz 1 index
-
-    //  - Status: Finished i Type: Strength Workout - to juz 1 index
-    //  - Status: Planned i Type: Strength Workout - to juz 1 index
-    //  - Status: In Progress i Type: Strength Workout - to juz 1 index
-
-    // jesli chcemy jeszcze kazda opcje moc posortowac za pomoca OrderBy to jescze 4 indeksy dla kazdego
-    // a jesli jescze dodatkowo Ascending lub Descending to juz 8 zamiast 4.
 
     // OrderBy: Ascending, Descending. Po takich polach jak: duration, exercise, overall lifted
     // calories burned, hits lasted, date
@@ -86,15 +74,23 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
         sortField: String? = null,
         direction: Query.Direction = Query.Direction.ASCENDING,
         filters: Map<String, Any> = emptyMap()
-
     ) {
+        _workoutsState.value = WorkoutsState.Loading
 
         var query: Query = db.collection("workouts")
             .document(currentUserUID)
             .collection("workouts_of_user")
 
+//        filters.forEach { (field, value) ->
+//            query = query.whereEqualTo(field, value) // to nie dziala gdyz przekazujemy liste np. status: ["Planned"]
+//        }                                            // a baza oczekuje pojedynczego elementu, czyli status: "Planned"
+
         filters.forEach { (field, value) ->
-            query = query.whereEqualTo(field, value)
+            query = if (value is List<*> && value.isNotEmpty()) { // sprawdzamy czy
+                query.whereIn(field, value)
+            } else {
+                query.whereEqualTo(field, value)
+            }
         }
 
         if (sortField != null) {
@@ -110,6 +106,7 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
                 documentSnapshot.toObject(WorkoutState::class.java)
             } ?: emptyList()
             _listOfWorkouts.value = workouts
+            _workoutsState.value = WorkoutsState.Loaded
         }
     }
 
@@ -136,6 +133,14 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
                 println("Error deleting workout: $e")
             }
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private fun clearForm() {
+        _hitWorkoutState.value = WorkoutState()
+        _strengthWorkoutState.value = WorkoutState()
+        _cardioWorkoutState.value = WorkoutState()
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -180,8 +185,7 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
 
     // ---------------------------------------------------------------------------------------------
 
-
-    fun saveWorkoutToDb(workoutState: WorkoutState, onSuccess: () -> Unit) {
+    fun saveWorkoutToDb(workoutState: WorkoutState, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             try {
                 db.collection("workouts")
@@ -190,10 +194,48 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
                     .document(workoutState.id)
                     .set(workoutState)
                 onSuccess()
+                clearForm()
                 addWorkoutToList(workoutState)
                 println(workoutState)
             } catch (e: Exception) {
                 println(e)
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    fun addToDbReminder(
+        listOfDates: List<Timestamp>,
+        listOfHours: List<Long>,
+        userFcmToken: String,
+        workoutId: String,
+        workoutState: WorkoutState,
+        onSuccess: () -> Unit
+    ) {
+
+        viewModelScope.launch {
+            try {
+                listOfDates.mapIndexed { index, date ->
+
+                    println(formatTimestamp(date))
+
+                    async {
+                        db.collection("reminders")
+                            .add(
+                                ReminderWorkoutDto(
+                                    fcmToken = userFcmToken,
+                                    timeOfReminder = date,
+                                    workoutId = workoutId,
+                                    messageText = longToString(listOfHours[index])
+                                )
+                            ).await()
+                    }
+                }.awaitAll()
+                onSuccess()
+                saveWorkoutToDb(workoutState)
+            } catch (e: Exception) {
+                println("error during adding reminders: $e")
             }
         }
     }
@@ -623,11 +665,22 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
         addExercise(_workoutToEdit, newExerciseName)
     }
 
+    // --------------------------Share with a friend workout----------------------------------------
+
+
+
+
+
     // ---------------------------------------------------------------------------------------------
 
     enum class ExerciseElementType {
         CARDIO,
         SET,
         HIT
+    }
+
+    sealed class WorkoutsState {
+        data object Loading : WorkoutsState()
+        data object Loaded : WorkoutsState()
     }
 }

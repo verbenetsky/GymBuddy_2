@@ -40,6 +40,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -98,7 +99,7 @@ fun EditWorkoutScreen(
         remember { mutableStateListOf<Boolean>().apply { addAll(List(workoutReminderOptions.size) { false }) } }
 
     var statusWorkout by remember { mutableStateOf(workoutToEditState.value.status) } // locked
-    var typeOfWorkout by remember { mutableStateOf(workoutToEditState.value.type) }
+    val typeOfWorkout by remember { mutableStateOf(workoutToEditState.value.type) }
 
     val strengthWorkoutState = workoutViewModel.strengthWorkoutState.collectAsStateWithLifecycle()
     val cardioWorkoutState = workoutViewModel.cardioWorkoutState.collectAsStateWithLifecycle()
@@ -124,29 +125,13 @@ fun EditWorkoutScreen(
         )
     }
 
-    var prevSizeStrength by remember { mutableIntStateOf(strengthWorkoutState.value.listOfExercise.size) }
-    var prevSizeCardio by remember { mutableIntStateOf(cardioWorkoutState.value.listOfExercise.size) }
-    var prevSizeHit by remember { mutableIntStateOf(cardioWorkoutState.value.listOfExercise.size) }
+    var prevSizeEdit by remember { mutableIntStateOf(workoutToEditState.value.listOfExercise.size) }
 
-    LaunchedEffect(strengthWorkoutState.value.listOfExercise.size) {
-        if (strengthWorkoutState.value.listOfExercise.size > prevSizeStrength) {
+    LaunchedEffect(workoutToEditState.value.listOfExercise.size) {
+        if (workoutToEditState.value.listOfExercise.size > prevSizeEdit) {
             scrollState.animateScrollTo(scrollState.maxValue)
         }
-        prevSizeStrength = strengthWorkoutState.value.listOfExercise.size
-    }
-
-    LaunchedEffect(cardioWorkoutState.value.listOfExercise.size) {
-        if (cardioWorkoutState.value.listOfExercise.size > prevSizeCardio) {
-            scrollState.animateScrollTo(scrollState.maxValue)
-        }
-        prevSizeCardio = cardioWorkoutState.value.listOfExercise.size
-    }
-
-    LaunchedEffect(hitWorkoutState.value.listOfExercise.size) {
-        if (hitWorkoutState.value.listOfExercise.size > prevSizeHit) {
-            scrollState.animateScrollTo(scrollState.maxValue)
-        }
-        prevSizeHit = hitWorkoutState.value.listOfExercise.size
+        prevSizeEdit = hitWorkoutState.value.listOfExercise.size
     }
 
     LaunchedEffect(Unit) {
@@ -274,79 +259,79 @@ fun EditWorkoutScreen(
         if (typeOfWorkout == "Strength Workout") {
 
             workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
-                //key(exercise.id) {
+                key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf(exercise.name) }
+                    var localTempName by remember { mutableStateOf(exercise.name) }
 
-                Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Exercise nr: ${index + 1}",
-                            maxLines = 1,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        TextField(value = localTempName,
-                            onValueChange = { newValue ->
-                                localTempName = newValue
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White,
-                                fontSize = 12.sp
-                            ),
-                            keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForEditExercise(
-                                    localTempName,
-                                    exercise.id
-                                )
-
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
-                            ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
-                            ),
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
                             modifier = Modifier
-                                .width(200.dp)
-                                .offset(x = (-15).dp)
-                                .onFocusChanged { focusState ->
-                                    if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForEditExercise(
-                                            localTempName,
-                                            exercise.id
-                                        )
-                                    } else {
-                                        localTempName = ""
-                                    }
-                                })
-
-                        IconButton(onClick = {
-                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
-                            strengthExerciseLimit--
-                            Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
-                                .show()
-
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete, contentDescription = null
+                                .fillMaxWidth()
+                                .padding(start = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Exercise nr: ${index + 1}",
+                                maxLines = 1,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            TextField(value = localTempName,
+                                onValueChange = { newValue ->
+                                    localTempName = newValue
+                                },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.titleSmall.copy(
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                ),
+                                keyboardActions = KeyboardActions(onDone = { // tu konieczne jest nacisniecie przycisku Done bo bez niego czemus duplikuja sie recordy treningowe jak sie klika Save zeby zapisac caly trening po edycji, z poziomu telefonu cieakc
+                                    workoutViewModel.editNameForEditExercise(
+                                        localTempName,
+                                        exercise.id
+                                    )
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                }),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
+                                ),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFF18120B),
+                                    unfocusedContainerColor = Color(0xFF18120B),
+                                    focusedIndicatorColor = Color(0xFF18120B),
+                                    unfocusedIndicatorColor = Color(0xFF18120B),
+                                    cursorColor = Color.White
+                                ),
+                                // todo problem jest taki ze jesli zmienia nazwe exercise ale nie klikna done albo nie zamkne klawiature i klikna na continue to dubluja sie recordy, do poprawy w przyszlosci
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .offset(x = (-15).dp)
+                                    .onFocusChanged { focusState ->
+                                        if (!focusState.isFocused) {
+                                            workoutViewModel.editNameForEditExercise(
+                                                localTempName,
+                                                exercise.id
+                                            )
+                                        } else {
+                                            localTempName = ""
+                                        }
+                                    })
+
+                            IconButton(onClick = {
+                                workoutViewModel.deleteExerciseFromEdit(exercise.id)
+                                strengthExerciseLimit--
+                                Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
+                                    .show()
+
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete, contentDescription = null
+                                )
+                            }
                         }
-                        //}
                     }
                 }
 
@@ -422,149 +407,155 @@ fun EditWorkoutScreen(
             }
 
 
-                Button(
-                    onClick = {
-                        workoutViewModel.addExerciseForEditWorkout("")
-                        strengthExerciseLimit++
-                    },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled = if (strengthExerciseLimit == 20) false else true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "Add an exercise ($strengthExerciseLimit/20)",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Button(onClick = {
-                    val updatedWorkout = workoutToEditState.value.copy(
-                        type = "Strength Workout",
-                        userId = Firebase.auth.currentUser!!.uid,
-                        workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
-                        workoutStart = timePickerToLong(selectedStartTime!!),
-                        workoutEnd = timePickerToLong(selectedEndTime!!),
-                        workoutTime = calculateWorkoutDuration(
-                            selectedStartTime!!,
-                            selectedEndTime!!
-                        ),
-                        status = statusWorkout
-                    )
-                    if (statusWorkout == "Planned") {
-                        workoutSaveToDb = updatedWorkout
-                        showBottomSheet = true
-                    } else {
-                        workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
-                            navigateToMyWorkoutsScreen()
-                            Toast.makeText(
-                                context,
-                                "Workout successfully updated.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }, {
-                            Toast.makeText(
-                                context,
-                                "Something gone wrong!",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        })
-                    }
+            Button(
+                onClick = {
+                    workoutViewModel.addExerciseForEditWorkout("")
+                    strengthExerciseLimit++
                 },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled =
-                    workoutToEditState.value.listOfExercise.all { it.listOfSets.isNotEmpty() }
-                            && workoutToEditState.value.listOfExercise.isNotEmpty()
-                            && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.kg != "" } }
-                            && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.reps != "" } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = if (strengthExerciseLimit == 20) false else true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Add an exercise ($strengthExerciseLimit/20)",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                ) {
-                    Text(
-                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            Button(onClick = {
+                val updatedWorkout = workoutToEditState.value.copy(
+                    type = "Strength Workout",
+                    exerciseCount = workoutToEditState.value.listOfExercise.size,
+                    liftedKg = workoutToEditState.value.listOfExercise.sumOf { exercise ->
+                        exercise.listOfSets.sumOf { set ->
+                            set.reps.toInt() * set.kg.toInt()
+                        }
+                    },
+                    userId = Firebase.auth.currentUser!!.uid,
+                    workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
+                    workoutStart = timePickerToLong(selectedStartTime!!),
+                    workoutEnd = timePickerToLong(selectedEndTime!!),
+                    workoutTime = calculateWorkoutDuration(
+                        selectedStartTime!!,
+                        selectedEndTime!!
+                    ),
+                    status = statusWorkout
+                )
+                if (statusWorkout == "Planned") {
+                    workoutSaveToDb = updatedWorkout
+                    showBottomSheet = true
+                } else {
+                    workoutViewModel.updateCurrentWorkout(updatedWorkout.id, updatedWorkout, {
+                        navigateToMyWorkoutsScreen()
+                        Toast.makeText(
+                            context,
+                            "Workout successfully updated.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }, {
+                        Toast.makeText(
+                            context,
+                            "Something gone wrong!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    })
                 }
+            },
+                shape = RoundedCornerShape(4.dp),
+                enabled =
+                workoutToEditState.value.listOfExercise.all { it.listOfSets.isNotEmpty() }
+                        && workoutToEditState.value.listOfExercise.isNotEmpty()
+                        && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.kg != "" } }
+                        && workoutToEditState.value.listOfExercise.all { it.listOfSets.all { it.reps != "" } },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+
+            ) {
+                Text(
+                    text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
         }
 
         if (typeOfWorkout == "Cardio Workout") {
 
             workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
-                //key(exercise.id) {
+                key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf(exercise.name) }
+                    var localTempName by remember { mutableStateOf(exercise.name) }
 
-                Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Exercise nr: ${index + 1}",
-                            maxLines = 1,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        TextField(value = localTempName,
-                            onValueChange = { newValue ->
-                                localTempName = newValue
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, fontSize = 12.sp
-                            ),
-                            keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForEditExercise(
-                                    localTempName, exercise.id
-                                )
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
-                            ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
-                            ),
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
                             modifier = Modifier
-                                .width(200.dp)
-                                .offset(x = (-15).dp)
-                                .onFocusChanged { focusState ->
-                                    if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForEditExercise(
-                                            localTempName,
-                                            exercise.id
-                                        )
-                                    } else {
-                                        localTempName = ""
-                                    }
-                                })
-
-                        IconButton(onClick = {
-                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
-                            cardioExerciseLimit--
-                            Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
-                                .show()
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete, contentDescription = null
+                                .fillMaxWidth()
+                                .padding(start = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Exercise nr: ${index + 1}",
+                                maxLines = 1,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            TextField(value = localTempName,
+                                onValueChange = { newValue ->
+                                    localTempName = newValue
+                                },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.titleSmall.copy(
+                                    color = Color.White, fontSize = 12.sp
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    workoutViewModel.editNameForEditExercise(
+                                        localTempName, exercise.id
+                                    )
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                }),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
+                                ),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFF18120B),
+                                    unfocusedContainerColor = Color(0xFF18120B),
+                                    focusedIndicatorColor = Color(0xFF18120B),
+                                    unfocusedIndicatorColor = Color(0xFF18120B),
+                                    cursorColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .offset(x = (-15).dp)
+                                    .onFocusChanged { focusState ->
+                                        if (!focusState.isFocused) {
+                                            workoutViewModel.editNameForEditExercise(
+                                                localTempName,
+                                                exercise.id
+                                            )
+                                        } else {
+                                            localTempName = ""
+                                        }
+                                    })
+
+                            IconButton(onClick = {
+                                workoutViewModel.deleteExerciseFromEdit(exercise.id)
+                                cardioExerciseLimit--
+                                Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
+                                    .show()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete, contentDescription = null
+                                )
+                            }
                         }
-                        //}
                     }
                 }
 
@@ -653,152 +644,156 @@ fun EditWorkoutScreen(
                     Text("Add a cardio")
                 }
             }
-            if (statusWorkout == "In Progress") {
-                Button(
-                    onClick = {
-                        workoutViewModel.addExerciseForEditWorkout("")
-                        cardioExerciseLimit++
-                    },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled = if (cardioExerciseLimit == 20) false else true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "Add an exercise ($cardioExerciseLimit/20)",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
 
-
-                Button(onClick = {
-                    val updatedWorkout = workoutToEditState.value.copy(
-                        type = "Cardio Workout",
-                        userId = Firebase.auth.currentUser!!.uid,
-                        workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
-                        workoutStart = timePickerToLong(selectedStartTime!!),
-                        workoutEnd = timePickerToLong(selectedEndTime!!),
-                        workoutTime = calculateWorkoutDuration(
-                            selectedStartTime!!,
-                            selectedEndTime!!
-                        ),
-                        status = statusWorkout
-                    )
-                    if (statusWorkout == "Planned") {
-                        workoutSaveToDb = updatedWorkout
-                        showBottomSheet = true
-                    } else {
-                        workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
-                            navigateToMyWorkoutsScreen()
-                            Toast.makeText(
-                                context,
-                                "Workout successfully updated.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }, {
-                            Toast.makeText(
-                                context,
-                                "Something gone wrong!",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        })
-                    }
-
+            Button(
+                onClick = {
+                    workoutViewModel.addExerciseForEditWorkout("")
+                    cardioExerciseLimit++
                 },
-                    shape = RoundedCornerShape(4.dp),
-                    enabled =
-                    workoutToEditState.value.listOfExercise.all { it.listOfCardio.isNotEmpty() }
-                            && workoutToEditState.value.listOfExercise.isNotEmpty()
-                            && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.kcal != "" } }
-                            && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.duration != "" } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-
-                ) {
-                    Text(
-                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                shape = RoundedCornerShape(4.dp),
+                enabled = if (cardioExerciseLimit == 20) false else true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Add an exercise ($cardioExerciseLimit/20)",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
+
+
+            Button(onClick = {
+                val updatedWorkout = workoutToEditState.value.copy(
+                    type = "Cardio Workout",
+                    exerciseCount = workoutToEditState.value.listOfExercise.size,
+                    caloriesBurned = workoutToEditState.value.listOfExercise.sumOf { exercise ->
+                        exercise.listOfCardio.sumOf { it.kcal.toIntOrNull() ?: 0 }
+                    },
+                    userId = Firebase.auth.currentUser!!.uid,
+                    workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
+                    workoutStart = timePickerToLong(selectedStartTime!!),
+                    workoutEnd = timePickerToLong(selectedEndTime!!),
+                    workoutTime = calculateWorkoutDuration(
+                        selectedStartTime!!,
+                        selectedEndTime!!
+                    ),
+                    status = statusWorkout
+                )
+                if (statusWorkout == "Planned") {
+                    workoutSaveToDb = updatedWorkout
+                    showBottomSheet = true
+                } else {
+                    workoutViewModel.updateCurrentWorkout(updatedWorkout.id, updatedWorkout, {
+                        navigateToMyWorkoutsScreen()
+                        Toast.makeText(
+                            context,
+                            "Workout successfully updated.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }, {
+                        Toast.makeText(
+                            context,
+                            "Something gone wrong!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    })
+                }
+
+            },
+                shape = RoundedCornerShape(4.dp),
+                enabled =
+                workoutToEditState.value.listOfExercise.all { it.listOfCardio.isNotEmpty() }
+                        && workoutToEditState.value.listOfExercise.isNotEmpty()
+                        && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.kcal != "" } }
+                        && workoutToEditState.value.listOfExercise.all { it.listOfCardio.all { it.duration != "" } },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+
+            ) {
+                Text(
+                    text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
         }
 
         if (typeOfWorkout == "HIT Workout") {
 
             workoutToEditState.value.listOfExercise.forEachIndexed { index, exercise ->
-                //key(exercise.id) {
+                key(exercise.id) {
 
-                var localTempName by remember { mutableStateOf(exercise.name) }
+                    var localTempName by remember { mutableStateOf(exercise.name) }
 
-                Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Exercise nr: ${index + 1}",
-                            maxLines = 1,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        TextField(value = localTempName,
-                            onValueChange = { newValue ->
-                                localTempName = newValue
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, fontSize = 12.sp
-                            ),
-                            keyboardActions = KeyboardActions(onDone = {
-                                workoutViewModel.editNameForEditExercise(
-                                    localTempName, exercise.id
-                                )
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
-                            ),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
-                            ),
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
                             modifier = Modifier
-                                .width(200.dp)
-                                .offset(x = (-15).dp)
-                                .onFocusChanged { focusState ->
-                                    if (!focusState.isFocused) {
-                                        workoutViewModel.editNameForEditExercise(
-                                            localTempName,
-                                            exercise.id
-                                        )
-                                    } else {
-                                        localTempName = ""
-                                    }
-                                })
-
-                        IconButton(onClick = {
-                            workoutViewModel.deleteExerciseFromEdit(exercise.id)
-                            hitExerciseLimit--
-                            Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
-                                .show()
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete, contentDescription = null
+                                .fillMaxWidth()
+                                .padding(start = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Exercise nr: ${index + 1}",
+                                maxLines = 1,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            TextField(value = localTempName,
+                                onValueChange = { newValue ->
+                                    localTempName = newValue
+                                },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.titleSmall.copy(
+                                    color = Color.White, fontSize = 12.sp
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    workoutViewModel.editNameForEditExercise(
+                                        localTempName, exercise.id
+                                    )
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                }),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
+                                ),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFF18120B),
+                                    unfocusedContainerColor = Color(0xFF18120B),
+                                    focusedIndicatorColor = Color(0xFF18120B),
+                                    unfocusedIndicatorColor = Color(0xFF18120B),
+                                    cursorColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .offset(x = (-15).dp)
+                                    .onFocusChanged { focusState ->
+                                        if (!focusState.isFocused) {
+                                            workoutViewModel.editNameForEditExercise(
+                                                localTempName,
+                                                exercise.id
+                                            )
+                                        } else {
+                                            localTempName = ""
+                                        }
+                                    })
+
+                            IconButton(onClick = {
+                                workoutViewModel.deleteExerciseFromEdit(exercise.id)
+                                hitExerciseLimit--
+                                Toast.makeText(context, "Exercise deleted", Toast.LENGTH_SHORT)
+                                    .show()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete, contentDescription = null
+                                )
+                            }
                         }
-                        //}
                     }
                 }
 
@@ -899,6 +894,10 @@ fun EditWorkoutScreen(
             Button(onClick = {
                 val updatedWorkout = workoutToEditState.value.copy(
                     type = "HIT Workout",
+                    exerciseCount = workoutToEditState.value.listOfExercise.size,
+                    hitsLasted = workoutToEditState.value.listOfExercise.sumOf { exercise ->
+                        exercise.listOfHits.sumOf { it.duration.toIntOrNull() ?: 0 }
+                    },
                     userId = Firebase.auth.currentUser!!.uid,
                     workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
                     workoutStart = timePickerToLong(selectedStartTime!!),
@@ -913,13 +912,13 @@ fun EditWorkoutScreen(
                     workoutSaveToDb = updatedWorkout
                     showBottomSheet = true
                 } else {
-                    workoutViewModel.updateCurrentWorkout(updatedWorkout.id,updatedWorkout, {
+                    workoutViewModel.updateCurrentWorkout(updatedWorkout.id, updatedWorkout, {
                         navigateToMyWorkoutsScreen()
                         Toast.makeText(
-                                context,
-                                "Workout successfully updated.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            context,
+                            "Workout successfully updated.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }, {
                         Toast.makeText(
                             context,

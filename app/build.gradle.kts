@@ -39,6 +39,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
@@ -134,7 +135,7 @@ dependencies {
     implementation(libs.moshi)
     implementation(libs.converter.moshi)
 
-    implementation (libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     implementation(libs.hilt.android)
     kapt(libs.hilt.android.compiler)
@@ -144,8 +145,6 @@ dependencies {
     implementation(libs.generativeai)
 
     implementation(libs.markdown)
-
-
 
 
 }

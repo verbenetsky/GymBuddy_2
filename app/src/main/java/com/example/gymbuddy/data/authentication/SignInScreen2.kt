@@ -49,12 +49,9 @@ import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 fun SignInScreen2(
     viewModel: SignInViewModel,
     onDontHaveAnAccountClick: () -> Unit,
-    userManagementViewModel: UserManagementViewModel,
-    friendRequestViewModel: FriendRequestViewModel,
     onLogInClick: () -> Unit,
     onForgetPasswordClick: () -> Unit,
     onEditClick: () -> Unit,
-    onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var passwordVisible by remember { mutableStateOf(false) }

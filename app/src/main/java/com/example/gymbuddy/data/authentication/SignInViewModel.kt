@@ -12,8 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.regex.Pattern
 
-class SignInViewModel() :
-    ViewModel() {
+class SignInViewModel() : ViewModel() {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 

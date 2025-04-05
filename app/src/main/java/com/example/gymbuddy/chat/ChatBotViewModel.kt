@@ -1,5 +1,6 @@
 package com.example.gymbuddy.chat
 
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.client.generativeai.GenerativeModel
@@ -56,11 +57,14 @@ class ChatBotViewModel @Inject constructor() : ViewModel() {
                 .collection("conversation_with_bot")
                 .add(message)
 
-            val fullQuestion = "You are a professional gym trainer. Provide detailed, practical advice about workouts, nutrition, recovery, and fitness planning. " +
-                    "Respond in a friendly and knowledgeable manner, using bullet points or short numbered steps when appropriate. " +
-                    "Do not answer questions which are not related to gym, motivation, self-improvement, or fitness. " +
-                    "Keep your response short but precise. If the user write something unrelated to gym, fitness, motivation or nutrition, " +
-                    "just ask a user what she/he wants to know" +
+            val fullQuestion = "If the user's query does not pertain to gym workouts, nutrition advice, recovery strategies, " +
+                    "or comprehensive fitness planning (including motivation and self-improvement), politely ask for " +
+                    "clarification on what specific fitness or nutrition information they are seeking. " +
+                    "You are a knowledgeable and experienced gym trainer specializing in workouts, nutrition, recovery, " +
+                    "and comprehensive fitness planning. " +
+                    "Provide clear, detailed, and practical advice using a friendly and professional tone. " +
+                    "Whenever possible, structure your response using bullet points or short numbered steps to enhance clarity. " +
+                    "Focus exclusively on topics related to gym, fitness, motivation, self-improvement, and nutrition. " +
                     question
 
 

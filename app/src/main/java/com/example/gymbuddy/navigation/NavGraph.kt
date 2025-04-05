@@ -652,6 +652,7 @@ fun NavGraph(
                         ChatBotScreen()
                     }
                     composable(route = "my_workouts_screen") {
+
                         MyWorkoutsScreen(
                             navigateToAddWorkoutScreen = { innerNavController.navigate("add_workout_screen") },
                             innerNavController = innerNavController,
@@ -662,6 +663,7 @@ fun NavGraph(
                         AddWorkoutScreen(
                             navigateToMyWorkoutsScreen = { innerNavController.navigate("my_workouts_screen") },
                             innerNavController = innerNavController,
+                            userManagementViewModel = userManagementViewModel,
                         )
                     }
                     composable(route = "edit_workout_screen") {

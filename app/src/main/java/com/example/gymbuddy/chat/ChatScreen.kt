@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
+import android.widget.TextView
 import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -69,8 +71,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import androidx.core.text.HtmlCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -216,7 +220,7 @@ fun ChatListMessages(
             reverseLayout = true
         ) {
             items(messages.reversed()) { message ->
-                ChatBubble(message = message)
+                ChatBubble(message = message, shareWorkoutMessage = message.shareWorkoutMessage)
             }
         }
         Row(
@@ -268,8 +272,10 @@ fun ChatListMessages(
     }
 }
 
+
+
 @Composable
-fun ChatBubble(message: Message) {
+fun ChatBubble(message: Message, shareWorkoutMessage: Boolean = false) {
     val isCurrentUser = message.senderId == Firebase.auth.currentUser?.uid
     val bubbleColor = if (isCurrentUser) Color(0xFF8A6F4A) else Color(0xFF855400).copy(alpha = 0.8f)
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
@@ -314,10 +320,28 @@ fun ChatBubble(message: Message) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        Text(
-                            text = message.message?.trim().orEmpty(),
-                            color = Color.White
-                        )
+                        if (shareWorkoutMessage) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    TextView(ctx).apply {
+                                        // Konwertujemy HTML na Spanned przy użyciu HtmlCompat
+                                        text = message.message?.let {
+                                            HtmlCompat.fromHtml(
+                                                it.trim(),
+                                                HtmlCompat.FROM_HTML_MODE_LEGACY
+                                            )
+                                        }
+                                        setTextColor(Color.White.toArgb())
+                                    }
+                                }
+                            )
+                        } else {
+                            Text(
+                                text = message.message?.trim().orEmpty(),
+                                color = Color.White
+                            )
+                        }
+
                     }
                     Text(
                         text = dateConverter(message.createdAt),

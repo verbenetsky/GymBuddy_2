@@ -50,6 +50,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -74,19 +75,24 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.datasource.StatusOfWorkoutData.statusOfWorkout
 import com.example.gymbuddy.datasource.TypeOfWorkoutData.TypeOfWorkout
 import com.example.gymbuddy.datasource.WorkoutReminderOptions.workoutReminderOptions
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -94,6 +100,7 @@ import java.util.Locale
 fun AddWorkoutScreen(
     innerNavController: NavController,
     navigateToMyWorkoutsScreen: () -> Unit,
+    userManagementViewModel: UserManagementViewModel,
     workoutViewModel: WorkoutViewModel = hiltViewModel(
         innerNavController.getBackStackEntry("about_screen")
     )
@@ -103,6 +110,8 @@ fun AddWorkoutScreen(
     val coroutineScope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    val userInformationState = userManagementViewModel.userInformationState.collectAsState()
 
     var workoutSaveToDb by remember { mutableStateOf<WorkoutState?>(null) }
 
@@ -116,8 +125,17 @@ fun AddWorkoutScreen(
     val checkedStates =
         remember { mutableStateListOf<Boolean>().apply { addAll(List(workoutReminderOptions.size) { false }) } }
 
-    var statusWorkout by remember { mutableStateOf("Planned") }
-    var typeOfWorkout by remember { mutableStateOf("HIT training") }
+    var reminderWorkoutState by remember { mutableStateOf(WorkoutState()) }
+
+    // 0 - 1hour
+    // 1 - 2hour
+    // 2 - 4hour
+    // 3 - 8hour
+    // 4 - 12hour
+    // 5 - 24hour
+
+    var statusWorkout by remember { mutableStateOf("") }
+    var typeOfWorkout by remember { mutableStateOf("") }
 
     val strengthWorkoutState = workoutViewModel.strengthWorkoutState.collectAsStateWithLifecycle()
     val cardioWorkoutState = workoutViewModel.cardioWorkoutState.collectAsStateWithLifecycle()
@@ -127,15 +145,9 @@ fun AddWorkoutScreen(
     var cardioExerciseLimit by remember { mutableIntStateOf(0) }
     var hitExerciseLimit by remember { mutableIntStateOf(0) }
 
-    val timePickerState = rememberTimePickerState(
-        initialHour = 12,
-        initialMinute = 0,
-        is24Hour = false
-    )
-
-    var selectedDate by remember { mutableLongStateOf(1L) } // delete
-    var selectedEndTime: TimePickerState? by remember { mutableStateOf(timePickerState) }
-    var selectedStartTime: TimePickerState? by remember { mutableStateOf(timePickerState) }
+    var selectedDate by remember { mutableLongStateOf(0L) }
+    var selectedEndTime: TimePickerState? by remember { mutableStateOf(null) }
+    var selectedStartTime: TimePickerState? by remember { mutableStateOf(null) }
 
     var prevSizeStrength by remember { mutableIntStateOf(strengthWorkoutState.value.listOfExercise.size) }
     var prevSizeCardio by remember { mutableIntStateOf(cardioWorkoutState.value.listOfExercise.size) }
@@ -493,7 +505,13 @@ fun AddWorkoutScreen(
 
                 Button(onClick = {
                     val updatedWorkout = strengthWorkoutState.value.copy(
+                        liftedKg = strengthWorkoutState.value.listOfExercise.sumOf { exercise ->
+                            exercise.listOfSets.sumOf { set ->
+                                set.reps.toInt() * set.kg.toInt()
+                            }
+                        },
                         type = "Strength Workout",
+                        exerciseCount = strengthWorkoutState.value.listOfExercise.size,
                         userId = Firebase.auth.currentUser!!.uid,
                         workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
                         workoutStart = timePickerToLong(selectedStartTime!!),
@@ -506,6 +524,7 @@ fun AddWorkoutScreen(
                     )
                     if (statusWorkout == "Planned") {
                         workoutSaveToDb = updatedWorkout
+                        reminderWorkoutState = updatedWorkout
                         showBottomSheet = true
                     } else {
                         workoutViewModel.saveWorkoutToDb(
@@ -534,7 +553,7 @@ fun AddWorkoutScreen(
 
                 ) {
                     Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
+                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -718,6 +737,10 @@ fun AddWorkoutScreen(
                 Button(onClick = {
                     val updatedWorkout = cardioWorkoutState.value.copy(
                         type = "Cardio Workout",
+                        caloriesBurned = cardioWorkoutState.value.listOfExercise.sumOf { exercise ->
+                            exercise.listOfCardio.sumOf { it.kcal.toIntOrNull() ?: 0 }
+                        },
+                        exerciseCount = cardioWorkoutState.value.listOfExercise.size,
                         userId = Firebase.auth.currentUser!!.uid,
                         workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
                         workoutStart = timePickerToLong(selectedStartTime!!),
@@ -730,6 +753,7 @@ fun AddWorkoutScreen(
                     )
                     if (statusWorkout == "Planned") {
                         workoutSaveToDb = updatedWorkout
+                        reminderWorkoutState = updatedWorkout
                         showBottomSheet = true
                     } else {
                         workoutViewModel.saveWorkoutToDb(
@@ -759,7 +783,7 @@ fun AddWorkoutScreen(
 
                 ) {
                     Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
+                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -942,6 +966,10 @@ fun AddWorkoutScreen(
                 Button(onClick = {
                     val updatedWorkout = hitWorkoutState.value.copy(
                         type = "HIT Workout",
+                        hitsLasted = hitWorkoutState.value.listOfExercise.sumOf { exercise ->
+                            exercise.listOfHits.sumOf { it.duration.toIntOrNull() ?: 0 }
+                        },
+                        exerciseCount = hitWorkoutState.value.listOfExercise.size,
                         userId = Firebase.auth.currentUser!!.uid,
                         workoutDate = if (statusWorkout == "In Progress") System.currentTimeMillis() else selectedDate,
                         workoutStart = timePickerToLong(selectedStartTime!!),
@@ -954,6 +982,7 @@ fun AddWorkoutScreen(
                     )
                     if (statusWorkout == "Planned") {
                         workoutSaveToDb = updatedWorkout
+                        reminderWorkoutState = updatedWorkout
                         showBottomSheet = true
                     } else {
                         workoutViewModel.saveWorkoutToDb(
@@ -982,7 +1011,7 @@ fun AddWorkoutScreen(
 
                 ) {
                     Text(
-                        text = if (statusWorkout == "Planned")"Continue" else "Save Workout",
+                        text = if (statusWorkout == "Planned") "Continue" else "Save Workout",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1051,6 +1080,46 @@ fun AddWorkoutScreen(
             },
             onSetNotificationClick = {
 
+                val tempListOfHours = mutableListOf<Long>()
+                val hourOptions = listOf(1, 2, 4, 8, 12, 24)
+
+                checkedStates.forEachIndexed { index, checked ->
+                    if (checked) {
+                        tempListOfHours.add(hourOptions[index] * 60 * 60 * 1000L)
+                    }
+                }
+
+                // Obliczamy dokładny czas treningu, traktując workoutStart jako offset
+                val workoutTimestamp = calculateWorkoutTimestamp(
+                    reminderWorkoutState.workoutDate,
+                    reminderWorkoutState.workoutStart
+                )
+
+                val tempListOfDates = mutableListOf<Timestamp>()
+                tempListOfHours.forEach { offset ->
+                    val reminderMillis = workoutTimestamp.toDate().time - offset
+                    tempListOfDates.add(Timestamp(Date(reminderMillis)))
+                }
+
+                val futureReminders = tempListOfDates.filter { it >= Timestamp.now() }
+
+                workoutViewModel.addToDbReminder(
+                    listOfDates = futureReminders,
+                    listOfHours = tempListOfHours,
+                    userFcmToken = userInformationState.value.fcmToken,
+                    onSuccess = {
+                        Toast.makeText(
+                            context,
+                            "Workout successfully added with reminders.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    workoutState = reminderWorkoutState,
+                    workoutId = reminderWorkoutState.id,
+                )
+
+                showBottomSheet = false
+                navigateToMyWorkoutsScreen()
             },
         )
     }
@@ -1288,3 +1357,26 @@ fun ModalBottomSheetNotification(
         }
     }
 }
+
+fun calculateWorkoutTimestamp(workoutDateMillis: Long, workoutStartMillis: Long): Timestamp {
+    val zone = ZoneId.systemDefault()
+
+    // Konwertujemy workoutDateMillis na LocalDate (wyodrębniając tylko datę)
+    val localDate = Instant.ofEpochMilli(workoutDateMillis)
+        .atZone(zone)
+        .toLocalDate()
+
+    // workoutStartMillis traktujemy jako przesunięcie od północy
+    val localTime = LocalTime.MIDNIGHT.plus(Duration.ofMillis(workoutStartMillis))
+
+    // Łączymy datę i czas w LocalDateTime
+    val localDateTime = LocalDateTime.of(localDate, localTime)
+
+    // Konwertujemy LocalDateTime na Instant
+    val instant = localDateTime.atZone(zone).toInstant()
+
+    // Tworzymy obiekt Timestamp wykorzystując Date.
+    return Timestamp(Date(instant.toEpochMilli()))
+}
+
+
