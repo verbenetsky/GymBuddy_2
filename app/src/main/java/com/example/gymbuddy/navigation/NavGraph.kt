@@ -1,33 +1,29 @@
 package com.example.gymbuddy.navigation
 
-import android.app.Activity
+import android.annotation.SuppressLint
 import android.content.Context
 import android.widget.Toast
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.LifecycleCoroutineScope
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.gymbuddy.data.authentication.GoogleAuthUiClient
 import com.example.gymbuddy.data.authentication.SignInScreen
 import com.example.gymbuddy.data.authentication.SignInScreen2
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.SignUpScreen
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
-import com.example.gymbuddy.presentation.RegistrationScreen
+import com.example.gymbuddy.presentation.RegistrationNewUserScreen
 import kotlinx.coroutines.launch
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -48,7 +44,9 @@ import com.example.gymbuddy.workout.AddWorkoutScreen
 import com.example.gymbuddy.workout.EditWorkoutScreen
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlin.math.sin
 
+@SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
     authState: SignInViewModel.AuthState,
@@ -58,7 +56,6 @@ fun NavGraph(
     userManagementViewModel: UserManagementViewModel,
     friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
     userSearchViewModel: UserSearchViewModel,
-    googleAuthUiClient: GoogleAuthUiClient,
     lifecycleScope: LifecycleCoroutineScope,
     applicationContext: Context
 ) {
@@ -66,68 +63,32 @@ fun NavGraph(
         val currentUser = Firebase.auth.currentUser?.uid ?: "non"
 
         composable("sign_in") {
-            val state by signInViewModel.state.collectAsStateWithLifecycle()
 
             LaunchedEffect(authState) {
                 if (authState == SignInViewModel.AuthState.Authenticated ||
                     authState == SignInViewModel.AuthState.GoogleAuthenticated
                 ) {
-                    if (navController.currentDestination?.route != "my_app") {
+                    if (navController.currentDestination?.route != "my_app") { // my_app
                         navController.navigate("my_app")
                     }
                 } else {
-                    if (navController.currentDestination?.route != "sign_in") {
+                    if (navController.currentDestination?.route != "sign_in") { // sign_in
                         navController.navigate("sign_in")
                     }
                 }
             }
 
-            val launcher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartIntentSenderForResult(),
-                onResult = { result ->
-                    if (result.resultCode == Activity.RESULT_OK) {
-                        lifecycleScope.launch {
-                            val signInResult = googleAuthUiClient.signInWithIntent(
-                                intent = result.data ?: return@launch
-                            )
-                            signInViewModel.onSignInResult(signInResult)
-                        }
-                    }
-                }
-            )
-
-            LaunchedEffect(state.isSignInSuccessful) {
-                if (state.isSignInSuccessful) {
-                    Toast.makeText(
-                        applicationContext,
-                        "Sign in successful",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    navController.navigate("profile")
-                    signInViewModel.resetState()
-                }
-            }
-
             SignInScreen(
-                state = state,
-                onSignInClick = {
-                    lifecycleScope.launch {
-                        val signInIntentSender = googleAuthUiClient.signIn()
-                        launcher.launch(
-                            IntentSenderRequest.Builder(
-                                signInIntentSender ?: return@launch
-                            ).build()
-                        )
-                    }
+                signInViewModel = signInViewModel,
+
+                onSignInGoogleButtonClick = {
+                    // todo
                 },
-                onSignUpClick = {
-                    navController.navigate("sign_up")
-                },
-                onContinueSignInScreenClick = {
-                    navController.navigate("sign_in_2")
-                    signInViewModel.resetPassword()
-                },
-                viewModel = signInViewModel,
+                onSignUpClick = { navController.navigate("sign_up") },
+
+                onContinueSignInScreenClick = { navController.navigate("sign_in_2") },
+
+                clearUserInformation = { userManagementViewModel.clearForm() }
             )
         }
 
@@ -158,126 +119,91 @@ fun NavGraph(
 //        }
 
         composable("sign_in_2") {
-            val password by signInViewModel.password.collectAsState()
-            val userData by signInViewModel.userData.collectAsState()
 
             SignInScreen2(
-                onForgetPasswordClick = { },
+                signInViewModel = signInViewModel,
                 onDontHaveAnAccountClick = {
                     navController.navigate("sign_up")
-                    signInViewModel.resetPassword()
                 },
-                viewModel = signInViewModel,
-                userManagementViewModel = userManagementViewModel,
-                friendRequestViewModel = friendRequestViewModel,
                 onEditClick = { navController.navigate("sign_in") },
-                onLogInClick = {
-                    signInViewModel.signIn(
-                        userData.email, password,
-                        onSuccess = {
-                            navController.navigate("my_app")
-                            userManagementViewModel.getUserFromFireStoreToViewModel()
-                        },
-                        onError = {
-                            Toast.makeText(
-                                applicationContext,
-                                "Wrong email or password",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    )
-
-                },
-                onLoginSuccess = {
-                    navController.navigate("my_app")
-                    userManagementViewModel.getUserFromFireStoreToViewModel()
-                },
+//                onLogInClick = {
+//                    signInViewModel.logIn(
+//                        userData.email, password,
+//                        onSuccess = {
+//                            navController.navigate("my_app")
+//                            userManagementViewModel.getUserFromFireStoreToViewModel()
+//                        },
+//                        onError = {
+//                            Toast.makeText(
+//                                applicationContext,
+//                                "Wrong email or password",
+//                                Toast.LENGTH_SHORT
+//                            ).show()
+//                        }
+//                    )
+//                }
+                navigateToMyApp = { navController.navigate("my_app") },
+                userManagementViewModel = userManagementViewModel,
+//                onLoginSuccess = {
+//                    navController.navigate("my_app")
+//                    userManagementViewModel.getUserFromFireStoreToViewModel()
+//                },
             )
         }
 
         composable("sign_up") {
             SignUpScreen(
-                viewModel = signInViewModel,
-                onCreateAnAccountClick = {
-                    signInViewModel.updateAuthState(SignInViewModel.AuthState.AuthenticatedButNotRegister)
-                    navController.navigate("registration")
-                },
-                onHaveAnAccountClick = {
-                    navController.navigate("sign_in")
-                }
+                onHaveAnAccountClick = { navController.navigate("sign_in") },
+                navigateToRegistration = { navController.navigate("registration") },
+                signInViewModel = signInViewModel,
             )
         }
 
 
         composable("registration") {
-            RegistrationScreen(
-                userInformationViewModel = userManagementViewModel,
-                onContinueClick = {
-                    userManagementViewModel.addUsernameToDataBase(
-                        username = userManagementViewModel.userInformationState.value.username,
-                        onSuccessfulUsernameAddition = {
-                            Toast.makeText(
-                                applicationContext,
-                                "Information successfully added",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            navController.navigate("my_app")
-                            userManagementViewModel.transportUserInformation(
-                                signInViewModel.userData.value
-                            )
-                            userManagementViewModel.addUser()
-                            signInViewModel.updateAuthState(SignInViewModel.AuthState.Authenticated)
-                        },
-                        onFailedUsernameAddition = {
-                            Toast.makeText(
-                                applicationContext,
-                                "Username is already taken, try again",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        onEmptyUsername = {
-                            Toast.makeText(
-                                applicationContext,
-                                "Username cannot be empty.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                    )
-                },
-                viewModel = signInViewModel,
+            RegistrationNewUserScreen(
+                userManagementViewModel = userManagementViewModel,
+                signInViewModel = signInViewModel,
+                navigateToMyApp = { navController.navigate("my_app") },
             )
         }
 
         composable("my_app") {
+            val context = LocalContext.current // todo delete
             val innerNavController = rememberNavController()
-            val context = LocalContext.current
+            // Twoje poprzednie podejście (deklaracja w mainie) nie działało, bo innerNavController
+            // miał inny zakres życia niż NavHost i nie zdążył dostać swojego ViewModelStore.
+
 
             MyScaffold(
-                onProfileClick = { innerNavController.navigate("profile_screen") },
                 onFriendsClick = {
                     friendRequestViewModel.fetchAllFriendRequestsAndFullInformation(currentUser)
                     friendRequestViewModel.getAllFriend(currentUser)
                     innerNavController.navigate("my_friends_screen")
                 },
+
+                onProfileClick = { innerNavController.navigate("profile_screen") },
+
                 onMyWorkoutsClick = { innerNavController.navigate("my_workouts_screen") },
+
                 onAIChatBotClick = { innerNavController.navigate("chatBot_screen") },
+
                 onMessageClick = { innerNavController.navigate("message_screen") },
-                onBackArrowClick = {
-                    innerNavController.navigate("profile_screen")
-                },
+
+                onBackArrowClick = { innerNavController.navigate("profile_screen") },
+
                 onAboutClick = { innerNavController.navigate("about_screen") },
-                onLogoutClick = {
-                    signInViewModel.logOut()
-                    navController.navigate("sign_in")
-                    userManagementViewModel.clearForm()
-                    signInViewModel.clearUserData()
-                },
+
+                navigateToSingInScreen = { navController.navigate("sign_in") },
+
+                onSearchClick = { innerNavController.navigate("search_screen") },
+
+                signInViewModel = signInViewModel,
+
+                userManagementViewModel = userManagementViewModel,
 
                 innerNavController = innerNavController,
-                onSearchClick = {
-                    innerNavController.navigate("search_screen")
-                },
-                userManagementViewModel = userManagementViewModel,
+
             ) { innerPadding ->
                 NavHost(
                     navController = innerNavController,
@@ -292,7 +218,7 @@ fun NavGraph(
                                 userManagementViewModel.deleteUsernameFromDataBase(
                                     userManagementViewModel.userInformationState.value.username
                                 )
-                                signInViewModel.deleteUser()
+                                signInViewModel.deleteUserAccount({}, {})
                                 signInViewModel.clearUserData()
                                 userManagementViewModel.deleteUserDataFromFirestore()
                                 userManagementViewModel.clearForm()
@@ -303,16 +229,16 @@ fun NavGraph(
                             onConfirmChangeImageClick = {
                                 userManagementViewModel.deleteProfilePicture(userManagementViewModel.userInformationState.value.profilePictureUrl)
                                 userManagementViewModel.updateProfilePictureToDefault()
-                                userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value)
+                                userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value, {}, {}) // todo
                             },
                             onSaveClick = {
                                 userManagementViewModel.addUsernameToDataBase(
                                     userManagementViewModel.bufferUserName.value,
-                                    onSuccessfulUsernameAddition = {
+                                    onSuccess = {
                                         userManagementViewModel.updateUsername(
                                             userManagementViewModel.bufferUserName.value
                                         )
-                                        userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value)
+                                        userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value, {} ,{}) // todo
                                         userManagementViewModel.uploadProfilePicture(
                                             userManagementViewModel.userInformationState.value.profilePictureUrl.toUri()
                                         )
@@ -322,7 +248,7 @@ fun NavGraph(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     },
-                                    onFailedUsernameAddition = {
+                                    onFailure = {
                                         Toast.makeText(
                                             context,
                                             "Username already taken",

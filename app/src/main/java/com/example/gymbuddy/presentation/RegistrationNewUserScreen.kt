@@ -1,5 +1,6 @@
 package com.example.gymbuddy.presentation
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +13,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
@@ -41,17 +45,23 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.authentication.SignInViewModel
+import com.example.gymbuddy.data.authentication.UserInformation
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.datasource.SportsData.sports
+import com.example.gymbuddy.utils.rememberImeState
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -59,18 +69,37 @@ import java.util.Locale
 private const val MAX_SIZE_LINE = 15
 
 @Composable
-fun RegistrationScreen(
-    userInformationViewModel: UserManagementViewModel,
-    viewModel: SignInViewModel,
-    onContinueClick: () -> Unit,
+fun RegistrationNewUserScreen(
+    userManagementViewModel: UserManagementViewModel = hiltViewModel(),
+    signInViewModel: SignInViewModel,
+    navigateToMyApp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
-    val authState by viewModel.authState.collectAsStateWithLifecycle()
-    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
+    val authState by signInViewModel.authState.collectAsStateWithLifecycle()
+    val userInformationState by userManagementViewModel.userInformationState.collectAsState()
+    val userDate by signInViewModel.userData.collectAsState()
+    val context = LocalContext.current
+
+    val imeState = rememberImeState()
+    val scrollState = rememberScrollState()
+
+    val selectedSports = remember { mutableStateListOf<String>() }
+    val listSize = selectedSports.size
 
     LaunchedEffect(userInformationState) {
         println(userInformationState)
+    }
+
+    LaunchedEffect(imeState.value) {
+        if (imeState.value) {
+            delay(25)
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        userManagementViewModel.transportUserInformation(userDate) // dodajemy do UserInfo
     }
 
     if (authState == SignInViewModel.AuthState.Loading) {
@@ -83,35 +112,87 @@ fun RegistrationScreen(
             CircularProgressIndicator()
         }
     } else {
+
         Column(
             modifier = modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .imePadding()
                 .padding(16.dp)
         ) {
             RegistrationTitle()
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             HorizontalDivider(thickness = 1.dp)
             Spacer(modifier = Modifier.height(8.dp))
-            HobbiesSection(userInformationViewModel)
+            HobbiesSection(selectedSports, listSize)
             Spacer(modifier = Modifier.height(8.dp))
-            NameInputFields(userInformationViewModel)
+            NameInputFields(userManagementViewModel, userInformationState)
             Spacer(modifier = Modifier.height(8.dp))
-            UsernameAndGoalFields(userInformationViewModel)
+            UsernameAndGoalFields(userManagementViewModel, userInformationState)
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
-            BirthdaySection(userInformationViewModel) { showDatePicker = it }
+            BirthdaySection(userInformationState) { showDatePicker = it }
             Spacer(modifier = Modifier.height(8.dp))
             ContinueButton(
-                onContinueClick = onContinueClick,
-                isEnabled = isContinueEnabled(userInformationViewModel)
+                onContinueClick = {
+                    // najpierw dodajemy hobby do viewModelu
+                    userManagementViewModel.addHobbies(selectedSports.toList())
+
+                    //potem sprawdzamy czy taki username jest wolny
+                    userManagementViewModel.addUsernameToDataBase(
+                        username = userInformationState.username,
+                        // jesli username jest wolny
+                        onSuccess = {
+                            userManagementViewModel.addUser(
+                                userInformation = userInformationState,
+                                onError = { e ->
+                                    println(e)
+                                    Toast.makeText(
+                                        context,
+                                        "Error: $e",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                onSuccess = {
+                                    Toast.makeText(
+                                        context,
+                                        "Information successfully added",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            ) // dodajemy takiego Usera do bazy danych
+
+                            signInViewModel.updateAuthState(SignInViewModel.AuthState.Authenticated) // ustawiamy stan na Authenticated
+                            userManagementViewModel.getUserFromFirestoreToViewModel(false)  // dodajemy fcm token do bazy danych
+                            navigateToMyApp() // przechodzimy do aplikacji
+                        },
+                        // jesli nie wolny username
+                        onFailure = {
+                            userManagementViewModel.updateUsername("")
+                            Toast.makeText(
+                                context,
+                                "Username is already taken, try again",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onEmptyUsername = {
+                            Toast.makeText(
+                                context,
+                                "Username cannot be empty",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                },
+                isEnabled = isContinueEnabled(userInformationState, selectedSports)
             )
         }
 
         if (showDatePicker) {
             DatePickerModal(
                 onDateSelected = { date ->
-                    userInformationViewModel.updateDateOfBirth(date!!)
+                    userManagementViewModel.updateDateOfBirth(date!!)
                     showDatePicker = false
                 },
                 onDismiss = { showDatePicker = false }
@@ -123,29 +204,35 @@ fun RegistrationScreen(
 
 @Composable
 fun RegistrationTitle() {
-    Text(
-        text = stringResource(R.string.registration),
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.fillMaxWidth()
-    )
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Text(
+            text = stringResource(R.string.registration),
+            style = MaterialTheme.typography.titleLarge,
+        )
+    }
 }
 
 @Composable
-fun HobbiesSection(userInformationViewModel: UserManagementViewModel) {
+fun HobbiesSection(
+    selectedSports: SnapshotStateList<String>,
+    listSize: Int
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.whats_your_hobbies),
-            style = MaterialTheme.typography.displayLarge
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
         )
-        FilterChips(userInformationViewModel)
+        FilterChips(selectedSports, listSize)
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FilterChips(userInformationViewModel: UserManagementViewModel) {
-    val selectedSports = remember { mutableStateListOf<String>() }
-    val listSize = selectedSports.size
+fun FilterChips(
+    selectedSports: SnapshotStateList<String>,
+    listSize: Int
+) {
 
     FlowRow(
         modifier = Modifier
@@ -160,13 +247,8 @@ fun FilterChips(userInformationViewModel: UserManagementViewModel) {
             FilterChip(
                 selected = selectedSports.contains(sport),
                 onClick = {
-                    if (selectedSports.contains(sport)) {
-                        selectedSports.remove(sport)
-                        userInformationViewModel.removeHobby(sport)
-                    } else {
-                        selectedSports.add(sport)
-                        userInformationViewModel.addHobby(sport)
-                    }
+                    if (selectedSports.contains(sport)) selectedSports.remove(sport)
+                    else selectedSports.add(sport)
                 },
                 enabled = selectedSports.contains(sport) || listSize < 5,
                 label = {
@@ -194,11 +276,14 @@ fun FilterChips(userInformationViewModel: UserManagementViewModel) {
 }
 
 @Composable
-fun NameInputFields(userInformationViewModel: UserManagementViewModel) {
-    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
+fun NameInputFields(
+    userInformationViewModel: UserManagementViewModel,
+    userInformationState: UserInformation,
+) {
     val onlyLettersRegex = Regex("^[a-zA-Z]*$")
 
     Row(modifier = Modifier.fillMaxWidth()) {
+        //firstName
         OutlinedTextField(
             value = userInformationState.firstName,
             singleLine = true,
@@ -209,8 +294,10 @@ fun NameInputFields(userInformationViewModel: UserManagementViewModel) {
             },
             label = { Text("First Name", style = MaterialTheme.typography.bodyMedium) },
             modifier = Modifier.weight(1f)
+
         )
         Spacer(modifier = Modifier.width(16.dp))
+        //lastName
         OutlinedTextField(
             value = userInformationState.lastName,
             singleLine = true,
@@ -226,10 +313,13 @@ fun NameInputFields(userInformationViewModel: UserManagementViewModel) {
 }
 
 @Composable
-fun UsernameAndGoalFields(userInformationViewModel: UserManagementViewModel) {
-    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
+fun UsernameAndGoalFields(
+    userInformationViewModel: UserManagementViewModel,
+    userInformationState: UserInformation
+) {
 
     Row(modifier = Modifier.fillMaxWidth()) {
+        //userName
         OutlinedTextField(
             value = userInformationState.username,
             singleLine = true,
@@ -241,6 +331,7 @@ fun UsernameAndGoalFields(userInformationViewModel: UserManagementViewModel) {
             modifier = Modifier.weight(1f)
         )
         Spacer(modifier = Modifier.width(16.dp))
+        // Goal
         OutlinedTextField(
             value = userInformationState.goal,
             singleLine = true,
@@ -255,10 +346,9 @@ fun UsernameAndGoalFields(userInformationViewModel: UserManagementViewModel) {
 
 @Composable
 fun BirthdaySection(
-    userInformationViewModel: UserManagementViewModel,
+    userInformationState: UserInformation,
     onShowDatePickerChange: (Boolean) -> Unit
 ) {
-    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -313,12 +403,15 @@ fun DatePickerModal(
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
-                onDateSelected(datePickerState.selectedDateMillis)
-                onDismiss()
-            }) {
+            TextButton(
+                onClick = {
+                    onDateSelected(datePickerState.selectedDateMillis)
+                    onDismiss()
+                }, enabled = datePickerState.selectedDateMillis != null
+            ) {
                 Text("OK")
             }
+
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
@@ -346,13 +439,15 @@ fun ContinueButton(
 }
 
 @Composable
-private fun isContinueEnabled(userInformationViewModel: UserManagementViewModel): Boolean {
-    val userInformationState by userInformationViewModel.userInformationState.collectAsState()
+private fun isContinueEnabled(
+    userInformationState: UserInformation,
+    selectedSports: SnapshotStateList<String>
+): Boolean {
 
     return userInformationState.firstName.isNotEmpty() &&
             userInformationState.lastName.isNotEmpty() &&
             userInformationState.username.isNotEmpty() &&
             userInformationState.goal.isNotEmpty() &&
             userInformationState.dateOfBirth != 0L &&
-            userInformationState.hobbies.size == 5
+            selectedSports.size == 5
 }

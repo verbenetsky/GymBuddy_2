@@ -8,14 +8,14 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
 
-class CloudStorageRepositoryImpl : CloudStorageRepository {
+class CloudStorageRepositoryImpl @Inject constructor() : CloudStorageRepository {
 
     private val storageRef = Firebase.storage.reference
     private val user = Firebase.auth.currentUser
     private val userId = user?.uid
     private val db = Firebase.firestore
-
 
     override suspend fun uploadImage(imageUri: Uri): Result<String> {
         return try {
@@ -40,8 +40,6 @@ class CloudStorageRepositoryImpl : CloudStorageRepository {
         }
     }
 
-
-
     override suspend fun deleteImage(imageUri: String): Result<Boolean> {
         return try {
             val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUri)
@@ -54,6 +52,4 @@ class CloudStorageRepositoryImpl : CloudStorageRepository {
             Result.failure(e)
         }
     }
-
-
 }

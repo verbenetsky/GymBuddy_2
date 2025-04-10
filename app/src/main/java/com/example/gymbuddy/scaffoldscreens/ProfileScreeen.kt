@@ -1,5 +1,6 @@
 package com.example.gymbuddy.scaffoldscreens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,6 +98,8 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -105,6 +108,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+@SuppressLint("MutableCollectionMutableState")
 @Composable
 fun ProfileScreen(
     onSaveClick: () -> Unit,
@@ -114,6 +118,7 @@ fun ProfileScreen(
     userManagementViewModel: UserManagementViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val userInformationState by userManagementViewModel.userInformationState.collectAsState()
     val updateUsernameIsUsed by userManagementViewModel.usernameIsUsed.collectAsState()
     val bufferUserName by userManagementViewModel.bufferUserName.collectAsState()
@@ -129,7 +134,13 @@ fun ProfileScreen(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     val imageState by userManagementViewModel.imageState.collectAsState()
 
-    val context = LocalContext.current
+    var tempFirstName by remember { mutableStateOf(userInformationState.firstName) }
+    var tempLastName by remember { mutableStateOf(userInformationState.lastName) }
+    var tempUsername by remember { mutableStateOf(userInformationState.username) }
+    var tempDateOfBirth by remember { mutableLongStateOf(userInformationState.dateOfBirth) }
+    var tempGoal by remember { mutableStateOf(userInformationState.goal) }
+    var tempListOfHobbies by remember { mutableStateOf(mutableListOf<String>()) }
+
 
     val openDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -142,6 +153,17 @@ fun ProfileScreen(
             }
         }
     )
+
+    LaunchedEffect(key1 = tempGoal, key2= tempListOfHobbies) {
+        println(tempGoal)
+        println(tempListOfHobbies)
+    }
+
+    LaunchedEffect(key1 = tempFirstName, key2 = tempLastName, key3 = tempDateOfBirth) {
+        println(tempFirstName)
+        println(tempLastName)
+        println(tempDateOfBirth)
+    }
 
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
@@ -262,9 +284,12 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
+                            //firstName
                             BasicTextField(
-                                value = userInformationState.firstName,
-                                onValueChange = { userManagementViewModel.updateFirstName(it) },
+                                value = tempFirstName,
+                                //value = userInformationState.firstName,
+                                onValueChange = { tempFirstName = it },
+                                // onValueChange = { userManagementViewModel.updateFirstName(it) },
                                 enabled = enableEdit,
                                 singleLine = true,
                                 textStyle = MaterialTheme.typography.appBarTitle.copy(
@@ -304,9 +329,12 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
+                            // lastname
                             BasicTextField(
-                                value = userInformationState.lastName,
-                                onValueChange = { userManagementViewModel.updateLastName(it) },
+                                //value = userInformationState.lastName,
+                                value = tempLastName,
+                                onValueChange = { tempLastName = it },
+                                //onValueChange = { userManagementViewModel.updateLastName(it) },
                                 enabled = enableEdit,
                                 singleLine = true,
                                 textStyle = MaterialTheme.typography.appBarTitle.copy(
@@ -375,19 +403,17 @@ fun ProfileScreen(
                                     }
                             ) {
                                 Text(
-                                    text = "@",
+                                    text = "@ ",
                                     style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
                                 )
                                 BasicTextField(
                                     modifier = Modifier
                                         .wrapContentWidth()
                                         .wrapContentHeight(),
-                                    value = bufferUserName,
-                                    onValueChange = {
-                                        userManagementViewModel.updateBufferUsername(
-                                            it
-                                        )
-                                    },
+                                    value = tempUsername,
+                                    //value = buffername,
+                                    onValueChange = { tempUsername = it },
+                                    // onValueChange = {userManagementViewModel.updateBufferUsername(it) },
                                     enabled = enableEdit,
                                     singleLine = true,
                                     textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White)
@@ -436,7 +462,8 @@ fun ProfileScreen(
                     DateOfBirthManagement(
                         userInformationState = userInformationState,
                         onDateSelected = { date ->
-                            userManagementViewModel.updateDateOfBirth(date!!)
+                            //userManagementViewModel.updateDateOfBirth(date!!)
+                            tempDateOfBirth = date ?: 0L
                             showDatePicker = false
                         },
                         onShowDatePickerChange = { newValue -> showDatePicker = newValue },
@@ -462,7 +489,8 @@ fun ProfileScreen(
                                         cornerRadius = CornerRadius(0.dp.toPx(), 0.dp.toPx())
                                     )
                                 }
-                            }
+                            },
+                        tempDate = tempDateOfBirth
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Card(
@@ -470,7 +498,7 @@ fun ProfileScreen(
                             .fillMaxWidth()
                             .padding(start = 4.dp, end = 4.dp)
                     ) {
-
+                        // hobbies
                         TextField(
                             modifier = Modifier
                                 .offset(y = 1.dp)
@@ -534,7 +562,7 @@ fun ProfileScreen(
                             .fillMaxWidth()
                             .padding(start = 4.dp, end = 4.dp)
                     ) {
-
+                        // goal
                         TextField(
                             modifier = modifier
                                 .fillMaxWidth()
@@ -560,10 +588,12 @@ fun ProfileScreen(
                                     }
 
                                 },
-                            value = userInformationState.goal,
+                            //value = userInformationState.goal,
+                            value = tempGoal,
                             readOnly = !enableEdit,
                             singleLine = true,
-                            onValueChange = { userManagementViewModel.updateGoal(it) },
+                            onValueChange = { tempGoal = it },
+                            //onValueChange = { userManagementViewModel.updateGoal(it) },
                             maxLines = 2,
                             colors = TextFieldDefaults.colors(
                                 disabledTextColor = Color.White, disabledLabelColor = Color.White,
@@ -615,9 +645,11 @@ fun ProfileScreen(
                 showChipsDialog = showChipsDialog,
                 onConfirmButtonClickChipsSelect = { selectedList ->
                     selectedHobbies = selectedList
-                    userManagementViewModel.updateHobbies(selectedList)
+                    tempListOfHobbies = selectedList.toMutableList()
+                    //userManagementViewModel.updateHobbies(selectedList)
                 },
                 onChangeDialogState = { newValue -> showChipsDialog = newValue },
+                tempListOfHobbies = tempListOfHobbies,
             )
 
             AlertDialogChangeImage(
@@ -631,7 +663,6 @@ fun ProfileScreen(
         }
     }
 }
-
 
 
 @Composable
@@ -679,6 +710,7 @@ fun formatDate(date: Long): String {
 @Composable
 fun DateOfBirthManagement(
     userInformationState: UserInformation,
+    tempDate: Long,
     onDateSelected: (Long?) -> Unit,
     onShowDatePickerChange: (Boolean) -> Unit,
     enableEdit: Boolean,
@@ -703,7 +735,7 @@ fun DateOfBirthManagement(
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = formatDate(userInformationState.dateOfBirth),
+                text = formatDate(tempDate),
                 modifier = Modifier
                     .padding(start = 4.dp)
                     .offset(y = (3).dp)
@@ -832,14 +864,14 @@ fun AlertDialogDeleteAccount(
 @Composable
 fun AlertDialogSelectChips(
     showChipsDialog: Boolean,
+    tempListOfHobbies: MutableList<String>,
     onConfirmButtonClickChipsSelect: (List<String>) -> Unit,
     onChangeDialogState: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (showChipsDialog) {
-        val selectedSports = remember { mutableStateListOf<String>() }
 
-        val listSize = selectedSports.size
+        val listSize = tempListOfHobbies.size
         AlertDialog(
             onDismissRequest = { onChangeDialogState(false) },
             title = {
@@ -857,15 +889,15 @@ fun AlertDialogSelectChips(
                 ) {
                     sports.forEach { sport ->
                         FilterChip(
-                            selected = selectedSports.contains(sport),
+                            selected = tempListOfHobbies.contains(sport),
                             onClick = {
-                                if (selectedSports.contains(sport)) {
-                                    selectedSports.remove(sport)
+                                if (tempListOfHobbies.contains(sport)) {
+                                    tempListOfHobbies.remove(sport)
                                 } else {
-                                    selectedSports.add(sport)
+                                    tempListOfHobbies.add(sport)
                                 }
                             },
-                            enabled = selectedSports.contains(sport) || listSize < 5,
+                            enabled = tempListOfHobbies.contains(sport) || listSize < 5,
                             label = {
                                 Text(
                                     sport,
@@ -893,7 +925,7 @@ fun AlertDialogSelectChips(
                 TextButton(
                     onClick = {
                         onChangeDialogState(false)
-                        onConfirmButtonClickChipsSelect(selectedSports)
+                        onConfirmButtonClickChipsSelect(tempListOfHobbies)
                     }, enabled = listSize == 5
                 ) {
                     Text("Confirm")
@@ -945,9 +977,7 @@ fun AlertDialogChangeImage(
                 ) {
                     Text("Cancel")
                 }
-            },
-
-            )
+            })
     }
 }
 

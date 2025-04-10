@@ -42,31 +42,32 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gymbuddy.R
 import com.example.gymbuddy.utils.CommonUtils
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 @Composable
 fun SignUpScreen(
-    viewModel: SignInViewModel,
+    signInViewModel: SignInViewModel,
+    navigateToRegistration: () -> Unit,
     onHaveAnAccountClick: () -> Unit,
-    onCreateAnAccountClick: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
-    val userData by viewModel.userData.collectAsState()
-    val password by viewModel.password.collectAsState()
-    val validation by viewModel.signInValidation.collectAsState()
+    val userData by signInViewModel.userData.collectAsState()
+    val password by signInViewModel.password.collectAsState()
+    val validation by signInViewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
 
-    val authState by viewModel.authState.collectAsStateWithLifecycle()
-
+    val authState by signInViewModel.authState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
-        viewModel.clearLoginForm()
+        signInViewModel.clearLoginForm()
         keyboardController?.hide()
-        viewModel.resetPassword()
+        signInViewModel.resetPassword()
     }
 
     if (authState == SignInViewModel.AuthState.Loading) {
@@ -82,17 +83,15 @@ fun SignUpScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.Black)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-
             Image(
                 painter = painterResource(id = CommonUtils.logoTheme()),
                 contentDescription = null,
-                modifier = Modifier.size(200.dp)
+                modifier = Modifier.size(185.dp)
             )
 
             Text(
@@ -104,27 +103,28 @@ fun SignUpScreen(
 
             OutlinedTextField(
                 value = userData.email,
-                onValueChange = { viewModel.updateEmail(it) },
+                singleLine = true,
+                onValueChange = {
+                    if (it.length < 30) {
+                        signInViewModel.updateEmail(it)
+                    }
+                },
                 label = { Text("Email address") },
                 leadingIcon = {
                     Icon(imageVector = Icons.Default.Email, contentDescription = "Email Icon")
                 },
             )
 
-            if (viewModel.isEmailWasUsed.collectAsState().value) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.email_already_used),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { viewModel.updatePassword(it) },
-                label = { Text("Enter your password") },
+                onValueChange = {
+                    if (it.length < 30) {
+                        signInViewModel.updatePassword(it)
+                    }
+                },
+                label = { Text("Password") },
                 leadingIcon = {
                     Icon(imageVector = Icons.Default.Lock, contentDescription = "password Icon")
                 },
@@ -151,12 +151,12 @@ fun SignUpScreen(
                 )
                 Text(
                     text = stringResource(R.string.password_length),
-                    color = if (viewModel.analyzePasswordRequirementsLength(password)) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
+                    color = if (signInViewModel.analyzePasswordRequirementsLength(password)) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.labelSmall,
                 )
                 Text(
                     text = stringResource(R.string.password_one_digit),
-                    color = if (viewModel.analyzePasswordRequirementsOneDigit(password)) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
+                    color = if (signInViewModel.analyzePasswordRequirementsOneDigit(password)) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
@@ -165,16 +165,17 @@ fun SignUpScreen(
 
             Button(
                 onClick = {
-                    keyboardController?.hide()
-                    viewModel.signUp(
+                    keyboardController?.hide() // chowamy klawiature
+                    signInViewModel.signUp( // rejestracja
                         userData.email,
                         password,
                         onSuccess = {
-                            onCreateAnAccountClick()
+                            navigateToRegistration()
+                            signInViewModel.setUserData(userData.email,Firebase.auth.currentUser!!.uid) // ustawiamy userData, czyli dodajemy email i userID
                             Toast.makeText(context, "Account Created", Toast.LENGTH_SHORT).show()
                         },
                         onError = { errorMessage ->
-                            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                         }
                     )
                 }, modifier = Modifier

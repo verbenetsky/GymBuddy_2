@@ -4,28 +4,30 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.CloudStorageRepositoryImpl
-import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
+import com.example.gymbuddy.data.repositoryImpl.UserManagementRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
+import javax.inject.Inject
+
 
 class UserManagementViewModel(
-    private val userRepository: UserRepositoryImpl = UserRepositoryImpl(),
+    private val userRepository: UserManagementRepositoryImpl = UserManagementRepositoryImpl(),
     private val cloudStorageRepository: CloudStorageRepositoryImpl = CloudStorageRepositoryImpl(),
 ) :
     ViewModel() {
 
-    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val db = Firebase.firestore
+    private val auth: FirebaseAuth = Firebase.auth
 
     private val _userInformationState = MutableStateFlow(UserInformation())
     val userInformationState: StateFlow<UserInformation> = _userInformationState.asStateFlow()
@@ -41,6 +43,85 @@ class UserManagementViewModel(
 
     var oldUserName = ""
 
+    init {
+        getUserFromFirestoreToViewModel()
+    }
+
+    // todo fix
+//    fun getUserFromFirestoreToViewModel() {
+//        viewModelScope.launch {
+//            val userId = auth.currentUser?.uid
+//            if (userId != null) {
+//                db.collection("users")
+//                    .document(userId)
+//                    .get()
+//                    .addOnSuccessListener { document ->
+//                        if (document.exists()) {
+//                            val userInformation = document.toObject(UserInformation::class.java)
+//                            if (userInformation != null) {
+//                                updateUserInformation(userInformation)
+//                            }
+//                        }
+//                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+//                            if (!task.isSuccessful) {
+//                                println("Fetching FCM registration token failed: ${task.exception}")
+//                                return@addOnCompleteListener
+//                            }
+//                            val token = task.result
+//                            println("token: $token")
+//                            updateUserFcmToken(token)
+//
+//                            viewModelScope.launch {
+//                                userRepository.addFcmTokenToDataBase(
+//                                    userId = userId,
+//                                    token = token,
+//                                    onSuccess = { println("token added successfully") },
+//                                    onFailure = { exception -> println("Error adding token: $exception") }
+//                                )
+//                            }
+//                        }
+//                    }.addOnFailureListener { exception ->
+//                        println("Error getting user data: $exception")
+//                    }
+//            }
+//        }
+//    }
+
+    fun getUserFromFirestoreToViewModel(logInOnly: Boolean = true) {
+        println("pobieranie danych z bazy")
+        viewModelScope.launch {
+            val auth: FirebaseAuth = Firebase.auth
+            val userId = auth.currentUser?.uid
+            if (logInOnly) {
+                if (userId == null) {
+                    println("User is not authenticated")
+                    return@launch
+                }
+                val result = userRepository.getUserFromFireStoreToViewModel(userId)
+                if (result.isSuccess) {
+                    updateUserInformation(result.getOrThrow())
+                } else {
+                    println("Error getting user data: ${result.exceptionOrNull()?.localizedMessage}")
+                }
+            }
+
+            val tokenResult = userRepository.getFcmToken()
+            if (tokenResult.isSuccess) {
+                val token = tokenResult.getOrThrow()
+                updateUserFcmToken(token)
+                val addTokenResult = userRepository.addFcmTokenToDataBase(userId!!, token)
+                if (addTokenResult.isSuccess) {
+                    println("Token added successfully")
+                } else {
+                    println("Error adding token: ${addTokenResult.exceptionOrNull()?.localizedMessage}")
+                }
+            } else {
+                println("Fetching FCM registration token failed: ${tokenResult.exceptionOrNull()?.localizedMessage}")
+            }
+        }
+    }
+
+    //------------------------------------Update Fields---------------------------------------------
     fun updateUsernameIsUsed(isUsed: Boolean) {
         _usernameIsUsed.value = isUsed
     }
@@ -77,21 +158,21 @@ class UserManagementViewModel(
         _userInformationState.update { currentState -> currentState.copy(goal = goal) }
     }
 
-    fun removeHobby(hobby: String) {
-        _userInformationState.update { currentState -> currentState.copy(hobbies = currentState.hobbies - hobby) }
-    }
-
-    fun addHobby(hobby: String) {
-        _userInformationState.update { currentState -> currentState.copy(hobbies = currentState.hobbies + hobby) }
+    fun addHobbies(hobbies: List<String>) {
+        _userInformationState.update { currentState -> currentState.copy(hobbies = hobbies) }
     }
 
     fun updateHobbies(hobbies: List<String>) {
         _userInformationState.update { currentState -> currentState.copy(hobbies = hobbies) }
     }
 
-    init {
-        getUserFromFireStoreToViewModel()
+    fun updateToOldUsername() {
+        _userInformationState.update { currentState ->
+            currentState.copy(username = oldUserName)
+        }
     }
+
+    //----------------------------------------------------------------------------------------------
 
     fun transportUserInformation(userData: UserData) {
         _userInformationState.update { currentState ->
@@ -110,30 +191,26 @@ class UserManagementViewModel(
     }
 
     private fun updateUserInformation(userInformation: UserInformation) {
-        _userInformationState.update { currentState ->
-            currentState.copy(
-                userId = userInformation.userId,
-                firstName = userInformation.firstName,
-                lastName = userInformation.lastName,
-                username = userInformation.username,
-                hobbies = userInformation.hobbies,
-                goal = userInformation.goal,
-                email = userInformation.email,
-                fcmToken = userInformation.fcmToken,
-                profilePictureUrl = userInformation.profilePictureUrl,
-                dateOfBirth = userInformation.dateOfBirth,
-            )
-        }
+        _userInformationState.value = userInformation
     }
+
 
     fun clearForm() {
         _userInformationState.value = UserInformation()
     }
 
-    fun addUser() {
+    fun addUser(
+        userInformation: UserInformation,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        println(userInformation)
         viewModelScope.launch {
-            val userInformation = _userInformationState.value
-            userRepository.addUser(userInformation)
+            val result = userRepository.addUser(userInformation)
+            if (result.isSuccess)
+                onSuccess()
+            else
+                onError(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
         }
     }
 
@@ -144,28 +221,49 @@ class UserManagementViewModel(
         }
     }
 
-    fun updateUser(newUserData: UserInformation) {
+    // todo fix this
+//    fun updateUser(newUserData: UserInformation) {
+//        viewModelScope.launch {
+//            val userId = auth.currentUser?.uid
+//            if (userId != null) {
+//                db.collection("users").document(userId)
+//                    .set(newUserData)
+//                    .addOnSuccessListener {
+//                        println("Data has been updated successfully")
+//                    }
+//                    .addOnFailureListener { exception ->
+//                        println("Error updating data: $exception")
+//                    }
+//            }
+//        }
+//    }
+
+    fun updateUser(newUserData: UserInformation, onSuccess: () -> Unit, onFailure: () -> Unit) {
         viewModelScope.launch {
-            val userId = firebaseAuth.currentUser?.uid
-            if (userId != null) {
-                db.collection("users").document(userId)
-                    .set(newUserData)
-                    .addOnSuccessListener {
-                        println("Data has been updated successfully")
-                    }
-                    .addOnFailureListener { exception ->
-                        println("Error updating data: $exception")
-                    }
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                println("user not authenticated")
+                return@launch
+            }
+
+            val result = userRepository.updateUser(newUserData, userId)
+            if (result.isSuccess) {
+                println("Data updated successfully")
+                onSuccess()
+            } else {
+                println("Error updating data: ${result.exceptionOrNull()?.localizedMessage}")
+                onFailure()
             }
         }
     }
 
     fun addUsernameToDataBase(
         username: String,
-        onSuccessfulUsernameAddition: () -> Unit,
-        onFailedUsernameAddition: () -> Unit,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit,
         onEmptyUsername: () -> Unit,
     ) {
+
         if (_bufferUserName.value == "" && _userInformationState.value.username == "") { // todo
             onEmptyUsername()
             return
@@ -174,25 +272,20 @@ class UserManagementViewModel(
         if (_bufferUserName.value != _userInformationState.value.username) {
             viewModelScope.launch {
                 val result = userRepository.addUsernameToDataBase(username)
-                result.onSuccess {
+                if (result.isSuccess) {
                     println("Username added successfully")
                     updateUsernameIsUsed(false)
                     deleteUsernameFromDataBase(oldUserName)
-                    onSuccessfulUsernameAddition()
-                }.onFailure { error ->
-                    println("Error adding username to database: ${error.message}")
+                    onSuccess()
+                } else {
+                    println("Error adding username to database: ${result.exceptionOrNull()?.message}")
                     updateUsernameIsUsed(true)
-                    onFailedUsernameAddition()
+                    onFailure()
                 }
             }
         }
     }
 
-    fun updateToOldUsername() {
-        _userInformationState.update { currentState ->
-            currentState.copy(username = oldUserName)
-        }
-    }
 
     fun deleteUsernameFromDataBase(username: String) {
         viewModelScope.launch {
@@ -240,46 +333,8 @@ class UserManagementViewModel(
         }
     }
 
-    fun getUserFromFireStoreToViewModel() {
-        viewModelScope.launch {
-            val userId = firebaseAuth.currentUser?.uid
-            if (userId != null) {
-                db.collection("users")
-                    .document(userId)
-                    .get()
-                    .addOnSuccessListener { document ->
-                    if (document.exists()) {
-                        val userInformation = document.toObject(UserInformation::class.java)
-                        if (userInformation != null) {
-                            updateUserInformation(userInformation)
-                        }
-                    }
-                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                        if (!task.isSuccessful) {
-                            println("Fetching FCM registration token failed: ${task.exception}")
-                            return@addOnCompleteListener
-                        }
-                        val token = task.result
-                        println("token: $token")
-                        updateUserFcmToken(token)
 
-                        viewModelScope.launch {
-                            userRepository.addFcmTokenToDataBase(
-                                userId = userId,
-                                token = token,
-                                onSuccess = { println("token added successfully") },
-                                onFailure = { exception -> println("Error adding token: $exception") }
-                            )
-                        }
-                    }
-                }.addOnFailureListener { exception ->
-                    println("Error getting user data: $exception")
-                }
-            }
-        }
-    }
-
-
+    //----------------------------------------------------------------------------------------------
 
     private val lastAndFirstNamePattern: Pattern = Pattern.compile("^[a-zA-Z]*$")
     private val usernamePattern: Pattern = Pattern.compile("^[a-zA-Z0-9_.-]*$")
@@ -288,7 +343,6 @@ class UserManagementViewModel(
         data object LoadedImage : ImageState()
         data object LoadingImage : ImageState()
     }
-
 }
 
 

@@ -1,17 +1,21 @@
 package com.example.gymbuddy.data.authentication
 
-import androidx.compose.foundation.Image
+import android.widget.Toast
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -30,42 +34,58 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.gymbuddy.R
-import com.example.gymbuddy.utils.CommonUtils
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import com.example.gymbuddy.pushnotification.FriendRequestViewModel
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.gymbuddy.utils.rememberImeState
 
 @Composable
 fun SignInScreen2(
-    viewModel: SignInViewModel,
+    signInViewModel: SignInViewModel,
+    userManagementViewModel: UserManagementViewModel,
+    navigateToMyApp: () -> Unit,
     onDontHaveAnAccountClick: () -> Unit,
-    onLogInClick: () -> Unit,
-    onForgetPasswordClick: () -> Unit,
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var passwordVisible by remember { mutableStateOf(false) }
-    val authState by viewModel.authState.collectAsState()
+    val context = LocalContext.current
 
-    val userData by viewModel.userData.collectAsState()
-    val validation by viewModel.signInValidation.collectAsState()
+    var passwordVisible by remember { mutableStateOf(false) }
+    val authState by signInViewModel.authState.collectAsState()
+
+    val userData by signInViewModel.userData.collectAsState()
+    val validation by signInViewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val password by viewModel.password.collectAsState()
+    val password by signInViewModel.password.collectAsState()
+
+    var forgotPasswordDialogState by remember { mutableStateOf(false) }
+
+    val imeState = rememberImeState()
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(key1 = Unit) {
         keyboardController?.hide()
-        viewModel.setIsLoginSuccessful()
+        signInViewModel.resetPassword()
+    }
+
+    LaunchedEffect(imeState.value) {
+        if(imeState.value) {
+            scrollState.animateScrollTo(scrollState.maxValue, tween(300))
+        }
     }
 
     if (authState == SignInViewModel.AuthState.Loading) {
@@ -81,24 +101,24 @@ fun SignInScreen2(
         Column(
             modifier = modifier
                 .fillMaxSize()
+                .background(Color.Black)
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(100.dp))
 
-            Box {
-                Image(
-                    painter = painterResource(id = CommonUtils.logoTheme()),
-                    contentDescription = null,
-                    modifier = Modifier.size(195.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+//            Box {
+//                Image(
+//                    painter = painterResource(id = CommonUtils.logoTheme()),
+//                    contentDescription = null,
+//                    modifier = Modifier.size(150.dp)
+//                )
+//            }
 
             Text(
                 text = stringResource(R.string.enter_your_password),
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 30.sp)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -129,8 +149,12 @@ fun SignInScreen2(
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { viewModel.updatePassword(it) },
-                label = { Text("Enter your password") },
+                onValueChange = {
+                    if (it.length < 30) {
+                        signInViewModel.updatePassword(it)
+                    }
+                },
+                label = { Text("Password") },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Lock,
@@ -160,27 +184,36 @@ fun SignInScreen2(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (!validation.isLoginSuccessful) {
-                Text(
-                    text = stringResource(R.string.wrong_email_or_password),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
             Text(
                 text = stringResource(R.string.forgot_password),
                 style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.clickable { onForgetPasswordClick() }
+                modifier = Modifier.clickable { forgotPasswordDialogState = true }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
-                    onLogInClick()
+                    signInViewModel.logIn(
+                        email = userData.email,
+                        password = password,
+                        onSuccess = {
+                            navigateToMyApp()
+                            userManagementViewModel.getUserFromFirestoreToViewModel()
+                            Toast.makeText(
+                                context,
+                                "Log in Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onError = { e ->
+                            Toast.makeText(
+                                context,
+                                e,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,7 +222,7 @@ fun SignInScreen2(
                 enabled = validation.isPasswordValid && password.isNotEmpty() && userData.email.isNotEmpty()
             ) {
                 Text(
-                    text = stringResource(R.string.continue_text),
+                    text = ("Log In"),
                     style = MaterialTheme.typography.displayMedium,
                 )
             }
@@ -204,5 +237,83 @@ fun SignInScreen2(
         }
     }
 
+    if (forgotPasswordDialogState) {
+        AlertDialogForgotPassword(
+            changeDialogState = { newValue -> forgotPasswordDialogState = newValue },
+            onSendResetEmailClick = {
+                signInViewModel.sendResetPasswordEmail(
+                    email = it,
+                    onSuccess = {
+                        Toast.makeText(context, "Email send", Toast.LENGTH_SHORT)
+                            .show()
+                    },
+                    onError = { e ->
+                        Toast.makeText(context, "Something gone wrong: $e", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                )
+            },
+            email = userData.email
+        )
+    }
+}
+
+@Composable
+fun AlertDialogForgotPassword(
+    email: String,
+    changeDialogState: (Boolean) -> Unit,
+    onSendResetEmailClick: (String) -> Unit,
+) {
+    var inputEmail by remember { mutableStateOf(email) }
+
+    AlertDialog(
+        onDismissRequest = {
+            changeDialogState(false)
+        },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(text = "Forgot Password")
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Enter your email address",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 15.sp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = inputEmail,
+                    onValueChange = { inputEmail = it },
+                    label = { Text("Enter email address") })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSendResetEmailClick(inputEmail)
+                    changeDialogState(false)
+                }
+            ) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    changeDialogState(false)
+                }
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 

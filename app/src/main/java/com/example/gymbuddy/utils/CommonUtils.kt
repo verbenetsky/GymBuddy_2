@@ -1,16 +1,13 @@
 package com.example.gymbuddy.utils
 
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import com.example.gymbuddy.R
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.Color
 import com.example.gymbuddy.workout.WorkoutState
 import com.google.firebase.Timestamp
-import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -83,7 +80,7 @@ object CommonUtils {
         return formatter.format(instant)
     }
 
-    
+
     fun workoutStateToMarkdown(workout: WorkoutState): String {
         // Funkcja pomocnicza do formatowania daty
         fun formatDate(ms: Long): String {
@@ -122,6 +119,7 @@ object CommonUtils {
                         }
                     }
                 }
+
                 "HIT Workout" -> {
                     appendLine("- **HIIT Time**: ${workout.hitsLasted} sec")
                     if (workout.listOfExercise.isNotEmpty()) {
@@ -139,6 +137,7 @@ object CommonUtils {
                         }
                     }
                 }
+
                 "Cardio Workout" -> {
                     appendLine("- **Calories Burned**: ${workout.caloriesBurned}")
                     if (workout.listOfExercise.isNotEmpty()) {
@@ -156,6 +155,7 @@ object CommonUtils {
                         }
                     }
                 }
+
                 else -> {
                     appendLine("- **Total Lifted (kg)**: ${workout.liftedKg}")
                     appendLine("- **HIIT Time**: ${workout.hitsLasted} sec")
@@ -166,5 +166,22 @@ object CommonUtils {
         }
     }
 
+    @Composable
+    fun borderColor(): Color {
+        return if (isSystemInDarkTheme()) {
+            Color.White
+        } else {
+            Color.Black
+        }
+    }
+
+    @Composable
+    fun textGoogleButtonColor(): Color {
+        return if (isSystemInDarkTheme()) {
+            Color.White
+        } else {
+            Color.Black
+        }
+    }
 
 }

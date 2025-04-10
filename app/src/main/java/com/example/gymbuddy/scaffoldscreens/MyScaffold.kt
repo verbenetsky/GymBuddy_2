@@ -3,6 +3,7 @@ package com.example.gymbuddy.scaffoldscreens
 import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -72,11 +74,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.chat.ChatBotViewModel
+import com.example.gymbuddy.data.authentication.SignInViewModel
+import com.example.gymbuddy.data.authentication.UserInformation
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import kotlinx.coroutines.launch
@@ -85,16 +90,17 @@ import kotlinx.coroutines.launch
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun MyScaffold(
-    onProfileClick: () -> Unit,
     userManagementViewModel: UserManagementViewModel = hiltViewModel(),
     chatBotViewModel: ChatBotViewModel = hiltViewModel(),
+    signInViewModel: SignInViewModel,
+    innerNavController: NavHostController,
+    onProfileClick: () -> Unit,
     onFriendsClick: () -> Unit,
     onMyWorkoutsClick: () -> Unit,
     onAIChatBotClick: () -> Unit,
     onMessageClick: () -> Unit,
-    innerNavController: NavHostController,
     onAboutClick: () -> Unit,
-    onLogoutClick: () -> Unit,
+    navigateToSingInScreen: () -> Unit,
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
     onBackArrowClick: () -> Unit,
@@ -107,10 +113,16 @@ fun MyScaffold(
     var deleteDialogState by remember { mutableStateOf(false) }
     var addWorkoutScreenDialogState by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val userInformationState by userManagementViewModel.userInformationState.collectAsState()
+    val authState by signInViewModel.authState.collectAsState()
 
     val navBackStackEntry by innerNavController.currentBackStackEntryAsState()
     // Pobieramy aktualną trasę
     val currentRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(Unit) {
+        signInViewModel.setAuthState(SignInViewModel.AuthState.Authenticated)
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -123,9 +135,27 @@ fun MyScaffold(
                     onAIChatBotClick = onAIChatBotClick,
                     onMessageClick = onMessageClick,
                     onAboutClick = onAboutClick,
-                    onLogoutClick = onLogoutClick,
+                    onLogoutClick = {
+                        signInViewModel.logOut(
+                            onSuccess = {
+                                navigateToSingInScreen()
+                                Toast.makeText(
+                                    context,
+                                    "Successfully logged out",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            onError = {
+                                Toast.makeText(
+                                    context,
+                                    "Error while logging out",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    },
                     drawerState = drawerState,
-                    userManagementViewModel = userManagementViewModel,
+                    userInformationState = userInformationState
                 )
             }
         }
@@ -224,9 +254,9 @@ fun MyScaffold(
                                     chatBotViewModel.deleteChatBotConversation(
                                         onSuccess = {
                                             Toast.makeText(
-                                                    context,
-                                            "Conversation deleted",
-                                            Toast.LENGTH_SHORT
+                                                context,
+                                                "Conversation deleted",
+                                                Toast.LENGTH_SHORT
                                             ).show()
                                         }
                                     )
@@ -250,14 +280,25 @@ fun MyScaffold(
                 )
             },
             content = { paddingValues ->
-                content(paddingValues)
-                AlertDialogClosingGoingBack(
-                    addWorkoutScreenDialogState = addWorkoutScreenDialogState,
-                    changeDialogState = { newValue ->
-                        addWorkoutScreenDialogState = newValue
-                    },
-                    navigateBack = { innerNavController.navigateUp() }
-                )
+                if (authState == SignInViewModel.AuthState.Loading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    content(paddingValues)
+                    AlertDialogClosingGoingBack(
+                        addWorkoutScreenDialogState = addWorkoutScreenDialogState,
+                        changeDialogState = { newValue ->
+                            addWorkoutScreenDialogState = newValue
+                        },
+                        navigateBack = { innerNavController.navigateUp() }
+                    )
+                }
             }
         )
     }
@@ -267,7 +308,7 @@ fun MyScaffold(
 fun DrawerContent(
     onProfileClick: () -> Unit,
     drawerState: DrawerState,
-    userManagementViewModel: UserManagementViewModel,
+    userInformationState: UserInformation,
     onFriendsClick: () -> Unit,
     onMyWorkoutsClick: () -> Unit,
     onAIChatBotClick: () -> Unit,
@@ -275,7 +316,6 @@ fun DrawerContent(
     onAboutClick: () -> Unit,
     onLogoutClick: () -> Unit,
 ) {
-    val userInformationState by userManagementViewModel.userInformationState.collectAsState()
     val scope = rememberCoroutineScope()
 
     Spacer(modifier = Modifier.height(16.dp))

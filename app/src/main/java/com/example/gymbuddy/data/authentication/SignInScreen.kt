@@ -6,20 +6,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
@@ -47,62 +53,51 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.gymbuddy.R
 import com.example.gymbuddy.ui.theme.Poppins
-import com.example.gymbuddy.ui.theme.googleButtonColorDark
-import com.example.gymbuddy.ui.theme.googleButtonColorLight
 import com.example.gymbuddy.utils.CommonUtils
+import com.example.gymbuddy.utils.CommonUtils.borderColor
+import com.example.gymbuddy.utils.CommonUtils.textGoogleButtonColor
+import com.example.gymbuddy.utils.rememberImeState
 
 
 @Composable
 fun SignInScreen(
-    state: SingInState,
-    viewModel: SignInViewModel,
+    signInViewModel: SignInViewModel,
     onContinueSignInScreenClick: () -> Unit,
-    onSignInClick: () -> Unit,
+    onSignInGoogleButtonClick: () -> Unit,
+    clearUserInformation: () -> Unit,
     onSignUpClick: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
 
-    val userData by viewModel.userData.collectAsState()
-    val validation by viewModel.signInValidation.collectAsState()
+    val userData by signInViewModel.userData.collectAsState()
+    val validation by signInViewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val context = LocalContext.current
-    // LE czesc korutyn, LE jest wywolany raz przy pierwszym uzyciu composable lub kiedy key zmienia sie
-    LaunchedEffect(key1 = state.signInError) {
-        state.signInError?.let { error ->
-            Toast.makeText(
-                context,
-                error,
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
-    LaunchedEffect(key1 = Unit) {
+    LaunchedEffect(Unit) {
         keyboardController?.hide()
+        signInViewModel.resetPassword()
+        clearUserInformation()
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.Black)
+            .imePadding()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-
-        Spacer(modifier = Modifier.height(72.dp))
-
 
         Box {
             Image(
                 painter = painterResource(id = CommonUtils.logoTheme()),
                 contentDescription = null,
-                modifier = Modifier.size(200.dp)
+                modifier = Modifier.size(185.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = stringResource(R.string.welcome_back),
             style = MaterialTheme.typography.titleLarge
@@ -110,21 +105,18 @@ fun SignInScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-
-
         OutlinedTextField(
             value = userData.email,
-            onValueChange = { viewModel.updateEmail(it) },
+            onValueChange = { signInViewModel.updateEmail(it) },
             label = { Text("Enter your email") },
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Email, contentDescription = "Email Icon")
             },
             isError = !validation.isEmailValid && userData.email.isNotEmpty(),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email
-            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
+
         if (!validation.isEmailValid && userData.email.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.invalid_email),
@@ -140,7 +132,7 @@ fun SignInScreen(
             onClick = { onContinueSignInScreenClick() },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 48.dp, end = 48.dp),
+                .padding(horizontal = 48.dp),
             shape = RoundedCornerShape(4.dp),
             enabled = validation.isEmailValid && userData.email.isNotEmpty()
         ) {
@@ -150,15 +142,21 @@ fun SignInScreen(
             )
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text(
-            stringResource(R.string.dont_have_an_account),
+            text = stringResource(R.string.dont_have_an_account),
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.clickable { onSignUpClick() })
+            modifier = Modifier.clickable { onSignUpClick() }
+        )
+
+        Spacer(modifier = Modifier.height(100.dp))
     }
 
-
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 30.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
@@ -169,7 +167,7 @@ fun SignInScreen(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(),
-                    onClick = { onSignInClick() }
+                    onClick = { onSignInGoogleButtonClick() }
                 )
                 .background(Color.Transparent)
                 .padding(10.dp)
@@ -198,24 +196,5 @@ fun SignInScreen(
                 )
             }
         }
-    }
-}
-
-
-@Composable
-fun borderColor(): Color {
-    return if (isSystemInDarkTheme()) {
-        Color.White
-    } else {
-        Color.Black
-    }
-}
-
-@Composable
-fun textGoogleButtonColor(): Color {
-    return if (isSystemInDarkTheme()) {
-        Color.White
-    } else {
-        Color.Black
     }
 }

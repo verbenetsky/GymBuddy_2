@@ -2,20 +2,17 @@ package com.example.gymbuddy.data.authentication
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gymbuddy.chat.Message
 import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.data.repositoryImpl.UserRepositoryImpl
+import com.example.gymbuddy.data.repositoryImpl.UserManagementRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
-import java.io.IOException
 
 
 class UserSearchViewModel(
-    private val userRepository: UserRepositoryImpl = UserRepositoryImpl(),
+    private val userRepository: UserManagementRepositoryImpl = UserManagementRepositoryImpl(),
 ) : ViewModel() {
 
     private val _userFoundInformation = MutableStateFlow(UserFoundInformation())
