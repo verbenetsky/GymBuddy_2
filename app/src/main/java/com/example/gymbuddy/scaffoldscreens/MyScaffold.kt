@@ -176,6 +176,7 @@ fun MyScaffold(
                                     "add_workout_screen" -> "Add Your Workout"
                                     "my_workouts_screen" -> "Workouts"
                                     "edit_workout_screen" -> "Edit Your Workout"
+                                    "search_screen" -> "Find a friend"
                                     else -> stringResource(R.string.app_name)
                                 },
                                 style = MaterialTheme.typography.appBarTitle,
@@ -270,6 +271,7 @@ fun MyScaffold(
                                     contentDescription = "Search Icon"
                                 )
                             }
+
                         } else {
                             Box(modifier = Modifier.size(48.dp))
                         }

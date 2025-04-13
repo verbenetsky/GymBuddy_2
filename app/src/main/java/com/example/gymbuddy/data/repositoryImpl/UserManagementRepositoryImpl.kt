@@ -3,7 +3,7 @@ package com.example.gymbuddy.data.repositoryImpl
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserInformation
 import com.example.gymbuddy.repository.UserManagementRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
@@ -11,7 +11,6 @@ import kotlinx.coroutines.tasks.await
 
 class UserManagementRepositoryImpl : UserManagementRepository {
 
-    private val auth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
 
     override suspend fun addUser(userInformation: UserInformation): Result<Boolean> {
@@ -51,7 +50,7 @@ class UserManagementRepositoryImpl : UserManagementRepository {
         return try {
             db.collection("users")
                 .document(userId)
-                .set(newUserData)
+                .set(newUserData, SetOptions.merge()) // Merge powoduje aktualizację tylko określonych pól
                 .await()
             Result.success(true)
         } catch (e: Exception) {
@@ -65,12 +64,11 @@ class UserManagementRepositoryImpl : UserManagementRepository {
                 val docRef = db.collection("usernames").document(username)
                 val snapshot = transaction.get(docRef)
                 if (snapshot.exists()) {
+                    println("Username already taken!")
                     throw Exception("Username already taken")
+                } else {
+                    transaction.set(docRef, emptyMap<String, Any>()) // jesli dokument nie istnieje to zapisujemy do niego pusta mape, czyli po prostu tworzymy pusty dokument
                 }
-                transaction.set(
-                    docRef,
-                    emptyMap<String, Any>()
-                ) // jesli dokument nie istnieje to zapisujemy do niego pusta mape, czyli po prostu tworzymy pusty dokument
             }.await()
             Result.success(true)
         } catch (e: Exception) {
@@ -84,7 +82,7 @@ class UserManagementRepositoryImpl : UserManagementRepository {
                 .document(username)
                 .delete()
                 .await()
-            Result.success(true)
+            Result.success(true) // nawet jesli dokument jaki chcemy usunac nie bedzie istnial to i tak zwrocony bedzie sukces
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -126,6 +124,13 @@ class UserManagementRepositoryImpl : UserManagementRepository {
         }
     }
 
+    // zeby usunac usera trzeba:
+    // - usunac z db +
+    // - usunac jego nickaname +
+    // - usunac wszysktie jego wiadomosci
+    // - usunac jego zdjecie profilowe z db +
+
+    // usuwanie z db
     override suspend fun deleteUser(userId: String): Result<Boolean> {
         return try {
             db.collection("users")
@@ -133,8 +138,6 @@ class UserManagementRepositoryImpl : UserManagementRepository {
                 .delete()
                 .await()
 
-            val user = auth.currentUser
-            user?.delete()?.await() ?: throw Exception("User not found")
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)

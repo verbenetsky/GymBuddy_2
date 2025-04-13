@@ -36,56 +36,12 @@ class UserManagementViewModel(
     val imageState: StateFlow<ImageState> = _imageState.asStateFlow()
 
     private val _usernameIsUsed = MutableStateFlow(false)
-    val usernameIsUsed: StateFlow<Boolean> = _usernameIsUsed.asStateFlow()
 
     private val _bufferUserName: MutableStateFlow<String> = MutableStateFlow("")
-    val bufferUserName: StateFlow<String> = _bufferUserName.asStateFlow()
-
-    var oldUserName = ""
 
     init {
         getUserFromFirestoreToViewModel()
     }
-
-    // todo fix
-//    fun getUserFromFirestoreToViewModel() {
-//        viewModelScope.launch {
-//            val userId = auth.currentUser?.uid
-//            if (userId != null) {
-//                db.collection("users")
-//                    .document(userId)
-//                    .get()
-//                    .addOnSuccessListener { document ->
-//                        if (document.exists()) {
-//                            val userInformation = document.toObject(UserInformation::class.java)
-//                            if (userInformation != null) {
-//                                updateUserInformation(userInformation)
-//                            }
-//                        }
-//                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-//                            if (!task.isSuccessful) {
-//                                println("Fetching FCM registration token failed: ${task.exception}")
-//                                return@addOnCompleteListener
-//                            }
-//                            val token = task.result
-//                            println("token: $token")
-//                            updateUserFcmToken(token)
-//
-//                            viewModelScope.launch {
-//                                userRepository.addFcmTokenToDataBase(
-//                                    userId = userId,
-//                                    token = token,
-//                                    onSuccess = { println("token added successfully") },
-//                                    onFailure = { exception -> println("Error adding token: $exception") }
-//                                )
-//                            }
-//                        }
-//                    }.addOnFailureListener { exception ->
-//                        println("Error getting user data: $exception")
-//                    }
-//            }
-//        }
-//    }
 
     fun getUserFromFirestoreToViewModel(logInOnly: Boolean = true) {
         println("pobieranie danych z bazy")
@@ -122,9 +78,9 @@ class UserManagementViewModel(
     }
 
     //------------------------------------Update Fields---------------------------------------------
-    fun updateUsernameIsUsed(isUsed: Boolean) {
-        _usernameIsUsed.value = isUsed
-    }
+//    fun updateUsernameIsUsed(isUsed: Boolean) {
+//        _usernameIsUsed.value = isUsed
+//    }
 
     fun updateFirstName(firstName: String) {
         if (firstName.matches(lastAndFirstNamePattern.toRegex())) {
@@ -144,11 +100,11 @@ class UserManagementViewModel(
         }
     }
 
-    fun updateBufferUsername(username: String) {
-        if (username.matches(usernamePattern.toRegex())) {
-            _bufferUserName.value = username
-        }
-    }
+//    fun updateBufferUsername(username: String) {
+//        if (username.matches(usernamePattern.toRegex())) {
+//            _bufferUserName.value = username
+//        }
+//    }
 
     fun updateDateOfBirth(dateOfBirth: Long) {
         _userInformationState.update { currentState -> currentState.copy(dateOfBirth = dateOfBirth) }
@@ -160,16 +116,6 @@ class UserManagementViewModel(
 
     fun addHobbies(hobbies: List<String>) {
         _userInformationState.update { currentState -> currentState.copy(hobbies = hobbies) }
-    }
-
-    fun updateHobbies(hobbies: List<String>) {
-        _userInformationState.update { currentState -> currentState.copy(hobbies = hobbies) }
-    }
-
-    fun updateToOldUsername() {
-        _userInformationState.update { currentState ->
-            currentState.copy(username = oldUserName)
-        }
     }
 
     //----------------------------------------------------------------------------------------------
@@ -214,31 +160,34 @@ class UserManagementViewModel(
         }
     }
 
-    fun deleteUserDataFromFirestore() {
+    fun deleteUserDataFromFirestore(
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit,
+        userId: String,
+        username: String
+    ) {
         viewModelScope.launch {
-            val userId = _userInformationState.value.userId
-            userRepository.deleteUser(userId)
+            val result = userRepository.deleteUser(userId)
+            println(result)
+            if (result.isSuccess) {
+                deleteUsernameFromDataBase(username)
+                clearForm()
+                onSuccess()
+                println("Deleted user from db successfully")
+            } else {
+                onFailure()
+            }
         }
     }
 
-    // todo fix this
-//    fun updateUser(newUserData: UserInformation) {
-//        viewModelScope.launch {
-//            val userId = auth.currentUser?.uid
-//            if (userId != null) {
-//                db.collection("users").document(userId)
-//                    .set(newUserData)
-//                    .addOnSuccessListener {
-//                        println("Data has been updated successfully")
-//                    }
-//                    .addOnFailureListener { exception ->
-//                        println("Error updating data: $exception")
-//                    }
-//            }
-//        }
-//    }
-
-    fun updateUser(newUserData: UserInformation, onSuccess: () -> Unit, onFailure: () -> Unit) {
+    fun updateUser(
+        newUserData: UserInformation,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit,
+        onFailureAddUsername: () -> Unit,
+        oldUsername: String,
+        newUsername: String
+    ) {
         viewModelScope.launch {
             val userId = auth.currentUser?.uid
             if (userId == null) {
@@ -246,7 +195,31 @@ class UserManagementViewModel(
                 return@launch
             }
 
-            val result = userRepository.updateUser(newUserData, userId)
+            val currentData = _userInformationState.value
+            var finalUsername = currentData.username
+            // tutaj sprawdzamy czy nie ma nowego username w bazie i jesli nie to dodajemy do kolekcji
+            // zeby zapewnic unikatowosc
+            if (oldUsername != newUsername) {
+                val resultAddUsername = userRepository.addUsernameToDataBase(newUsername)
+                if (resultAddUsername.isSuccess) {
+                    finalUsername = newUsername
+                    deleteUsernameFromDataBase(oldUsername)
+                } else {
+                    onFailureAddUsername()
+                    finalUsername = currentData.username
+                }
+            }
+
+            val updatedData = currentData.copy(
+                firstName = newUserData.firstName,
+                lastName = newUserData.lastName,
+                username = finalUsername,
+                dateOfBirth = newUserData.dateOfBirth,
+                hobbies = newUserData.hobbies,
+                goal = newUserData.goal
+            )
+
+            val result = userRepository.updateUser(updatedData, userId)
             if (result.isSuccess) {
                 println("Data updated successfully")
                 onSuccess()
@@ -257,14 +230,15 @@ class UserManagementViewModel(
         }
     }
 
+    // registration new user screen
     fun addUsernameToDataBase(
         username: String,
-        onSuccess: () -> Unit,
+        onSuccess: () -> Unit = {},
         onFailure: () -> Unit,
-        onEmptyUsername: () -> Unit,
+        onEmptyUsername: () -> Unit = {},
     ) {
 
-        if (_bufferUserName.value == "" && _userInformationState.value.username == "") { // todo
+        if (_bufferUserName.value == "" && _userInformationState.value.username == "") {
             onEmptyUsername()
             return
         }
@@ -274,12 +248,11 @@ class UserManagementViewModel(
                 val result = userRepository.addUsernameToDataBase(username)
                 if (result.isSuccess) {
                     println("Username added successfully")
-                    updateUsernameIsUsed(false)
-                    deleteUsernameFromDataBase(oldUserName)
+                    //updateUsernameIsUsed(false)
                     onSuccess()
                 } else {
                     println("Error adding username to database: ${result.exceptionOrNull()?.message}")
-                    updateUsernameIsUsed(true)
+                    //updateUsernameIsUsed(true)
                     onFailure()
                 }
             }
@@ -287,7 +260,7 @@ class UserManagementViewModel(
     }
 
 
-    fun deleteUsernameFromDataBase(username: String) {
+    private fun deleteUsernameFromDataBase(username: String) {
         viewModelScope.launch {
             userRepository.deleteUsernameFromDataBase(username)
         }
@@ -305,11 +278,12 @@ class UserManagementViewModel(
         }
     }
 
-    fun uploadProfilePicture(imageUri: Uri) {
+    fun uploadProfilePicture(imageUri: Uri, userId: String) {
         if (imageUri != _userInformationState.value.profilePictureUrl.toUri()) {
+            _imageState.value = ImageState.LoadingImage
+            println("userId : $userId")
             viewModelScope.launch {
-                _imageState.value = ImageState.LoadingImage
-                val result = cloudStorageRepository.uploadImage(imageUri)
+                val result = cloudStorageRepository.uploadImage(imageUri, userId)
                 result.onSuccess { downloadUrl ->
                     addProfilePictureUrlToViewModel(downloadUrl.toUri())
                 }.onFailure { error ->
@@ -321,18 +295,23 @@ class UserManagementViewModel(
     }
 
     fun deleteProfilePicture(imageUri: String) {
-        if (userInformationState.value.profilePictureUrl == "") return
+        if (userInformationState.value.profilePictureUrl == "") {
+            println("profile picture Url is empty")
+            return
+        }
         viewModelScope.launch {
-            cloudStorageRepository.deleteImage(imageUri)
+            val result = cloudStorageRepository.deleteImage(imageUri)
+            if (result.isSuccess) {
+                println("profile picture deleted")
+            }
         }
     }
 
-    fun updateUserFcmToken(token: String) {
+    private fun updateUserFcmToken(token: String) {
         _userInformationState.update { currentState ->
             currentState.copy(fcmToken = token)
         }
     }
-
 
     //----------------------------------------------------------------------------------------------
 

@@ -13,11 +13,9 @@ import javax.inject.Inject
 class CloudStorageRepositoryImpl @Inject constructor() : CloudStorageRepository {
 
     private val storageRef = Firebase.storage.reference
-    private val user = Firebase.auth.currentUser
-    private val userId = user?.uid
     private val db = Firebase.firestore
 
-    override suspend fun uploadImage(imageUri: Uri): Result<String> {
+    override suspend fun uploadImage(imageUri: Uri, userId: String): Result<String> {
         return try {
             val localTime = System.currentTimeMillis()
             val imagePath = "images/${localTime}_${userId}"
@@ -28,11 +26,9 @@ class CloudStorageRepositoryImpl @Inject constructor() : CloudStorageRepository 
             val downloadUrl = riversRef.downloadUrl.await().toString()
             println("Upload succeeded! Download URL: $downloadUrl")
 
-            if (userId != null) {
-                db.collection("users").document(userId)
-                    .update("profilePictureUrl", downloadUrl)
-                    .await()
-            }
+            db.collection("users").document(userId)
+                .update("profilePictureUrl", downloadUrl)
+                .await()
             Result.success(downloadUrl)
         } catch (e: Exception) {
             println("Upload failed: ${e.message}")
@@ -43,7 +39,6 @@ class CloudStorageRepositoryImpl @Inject constructor() : CloudStorageRepository 
     override suspend fun deleteImage(imageUri: String): Result<Boolean> {
         return try {
             val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUri)
-            println(fileRef)
             fileRef.delete().await()
             println("Delete succeeded!")
             Result.success(true)

@@ -212,59 +212,11 @@ fun NavGraph(
                 ) {
                     composable("profile_screen") {
                         ProfileScreen(
-                            onDeleteClick = {
-                                signInViewModel.updateAuthState(SignInViewModel.AuthState.Loading)
-                                navController.navigate("sign_in")
-                                userManagementViewModel.deleteUsernameFromDataBase(
-                                    userManagementViewModel.userInformationState.value.username
-                                )
-                                signInViewModel.deleteUserAccount({}, {})
-                                signInViewModel.clearUserData()
-                                userManagementViewModel.deleteUserDataFromFirestore()
-                                userManagementViewModel.clearForm()
-                                signInViewModel.updateAuthState(SignInViewModel.AuthState.Unauthenticated)
-                            },
-                            authState = authState,
+                            signInViewModel = signInViewModel,
+
                             userManagementViewModel = userManagementViewModel,
-                            onConfirmChangeImageClick = {
-                                userManagementViewModel.deleteProfilePicture(userManagementViewModel.userInformationState.value.profilePictureUrl)
-                                userManagementViewModel.updateProfilePictureToDefault()
-                                userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value, {}, {}) // todo
-                            },
-                            onSaveClick = {
-                                userManagementViewModel.addUsernameToDataBase(
-                                    userManagementViewModel.bufferUserName.value,
-                                    onSuccess = {
-                                        userManagementViewModel.updateUsername(
-                                            userManagementViewModel.bufferUserName.value
-                                        )
-                                        userManagementViewModel.updateUser(userManagementViewModel.userInformationState.value, {} ,{}) // todo
-                                        userManagementViewModel.uploadProfilePicture(
-                                            userManagementViewModel.userInformationState.value.profilePictureUrl.toUri()
-                                        )
-                                        Toast.makeText(
-                                            context,
-                                            "Username successfully updated",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                    onFailure = {
-                                        Toast.makeText(
-                                            context,
-                                            "Username already taken",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        userManagementViewModel.updateToOldUsername()
-                                    },
-                                    onEmptyUsername = {
-                                        Toast.makeText(
-                                            applicationContext,
-                                            "Username cannot be empty.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                )
-                            },
+
+                            onDeleteClick = { navController.navigate("sign_in") }
                         )
                     }
                     composable("about_screen") {

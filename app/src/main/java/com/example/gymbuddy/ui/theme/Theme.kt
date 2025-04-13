@@ -14,6 +14,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 
 
 private val lightScheme = lightColorScheme(
@@ -127,9 +128,9 @@ fun GymBuddyTheme(
     val isDarkTheme = isSystemInDarkTheme()
 
     SideEffect {
+
         systemUiController.setStatusBarColor(
             color = if(isDarkTheme) Color.Black else Color.White
-
         )
     }
 

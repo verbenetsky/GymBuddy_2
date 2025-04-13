@@ -165,6 +165,7 @@ fun RegistrationNewUserScreen(
 
                             signInViewModel.updateAuthState(SignInViewModel.AuthState.Authenticated) // ustawiamy stan na Authenticated
                             userManagementViewModel.getUserFromFirestoreToViewModel(false)  // dodajemy fcm token do bazy danych
+                            signInViewModel.clearUserData() // czyszcimy userData
                             navigateToMyApp() // przechodzimy do aplikacji
                         },
                         // jesli nie wolny username
@@ -172,7 +173,7 @@ fun RegistrationNewUserScreen(
                             userManagementViewModel.updateUsername("")
                             Toast.makeText(
                                 context,
-                                "Username is already taken, try again",
+                                "Username is already taken, try another one",
                                 Toast.LENGTH_SHORT
                             ).show()
                         },
