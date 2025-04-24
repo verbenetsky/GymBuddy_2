@@ -32,9 +32,6 @@ interface FcmApi {
         @Body removeDto: AcceptOrDeclineOrRemoveFriendDto
     )
 
-//    @POST("/send_reminder_norification")
-//    suspend fun sendReminderNotification(
-//        @Body reminderWorkoutDto: ReminderWorkoutDto
-//    )
+
 }
 

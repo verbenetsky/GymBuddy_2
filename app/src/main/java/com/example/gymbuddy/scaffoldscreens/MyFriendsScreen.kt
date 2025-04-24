@@ -1,5 +1,6 @@
 package com.example.gymbuddy.scaffoldscreens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,32 +35,52 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
+import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 @Composable
 fun MyFriendsScreen(
     friendRequestViewModel: FriendRequestViewModel,
-    onAcceptClick: (UserFoundInformation) -> Unit,
-    onDeclineClick: (UserFoundInformation) -> Unit,
-    onSeeProfileClick: (String) -> Unit,
-    onRemoveFriendClick: (UserFoundInformation) -> Unit,
+    userSearchViewModel: UserSearchViewModel,
+    onSeeProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val friendRequestFullList by friendRequestViewModel.friendsRequestFullList.collectAsState()
+    val friendRequestList by friendRequestViewModel.friendsRequestList.collectAsState()
     val friendList by friendRequestViewModel.friendList.collectAsState()
+
+    val context = LocalContext.current
 
     var alertDialogState by remember { mutableStateOf(false) }
     var myFriendsSubScreen by remember { mutableStateOf(false) }
     var myInvitationSubScreen by remember { mutableStateOf(true) }
     var friendToRemove by remember { mutableStateOf<UserFoundInformation?>(null) }
+    val uid = Firebase.auth.currentUser?.uid ?: return
+
+    //DisposableEffect to narzędzie do wykonywania kodu „przy wejściu” i „przy wyjściu” danego composable z drzewa UI.
+    // stosuje sie gdy rejestrujesz listener, broadcast receiver, Flux/Flow w callbackFlow, itp., i musisz go potem ręcznie odpiąć
+    DisposableEffect(uid) {
+        friendRequestViewModel.startListeningForRequests(uid)
+        friendRequestViewModel.startListeningFriends(uid)
+
+        onDispose {
+            // tutaj sprzatamy co zostalo utworzone w glownym bloku DisposableEffect
+            // Uruchomi się gdy Composable przestaje być w drzewie (np. użytkownik opuści ekran)
+            // lub gdy klucz się zmieni i Compose musi „odświeżyć” efekt.
+            friendRequestViewModel.stopListening()
+            friendRequestViewModel.stopListeningFriends()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -97,7 +119,7 @@ fun MyFriendsScreen(
             }
         }
         if (myInvitationSubScreen) {
-            if (friendRequestFullList.isEmpty()) {
+            if (friendRequestList.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -106,16 +128,31 @@ fun MyFriendsScreen(
                 }
             } else {
                 LazyColumn {
-                    items(friendRequestFullList) { friend ->
+                    items(friendRequestList) { friend ->
                         val painter =
                             if (friend.profilePictureUrl.isEmpty()) painterResource(R.drawable.default_profile_picture) else rememberAsyncImagePainter(
                                 friend.profilePictureUrl
                             )
                         SingleRecordOfFriendsList(
-                            onSeeProfileClick = { onSeeProfileClick(friend.userId) },
+                            onSeeProfileClick = {
+                                //onSeeProfileClick(friend.userId)
+                                onSeeProfileClick()
+                                userSearchViewModel.getUserBasedOnUserId(friend.userId) {}
+                            },
                             onAcceptClick = {
-                                onAcceptClick(friend)
-                                println("tutaj accept sie kliknalem")
+                                //onAcceptClick(friend)
+                                friendRequestViewModel.acceptFriendRequest(
+                                    currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                                    friendId = friend.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            context,
+                                            "You've got a new friend",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+
                                 friendRequestViewModel.sendAcceptNotification(
                                     acceptFriendRequestDto = AcceptOrDeclineOrRemoveFriendDto(
                                         senderName = friend.username,
@@ -124,7 +161,21 @@ fun MyFriendsScreen(
                                 )
                             },
                             onDeclineClick = {
-                                onDeclineClick(friend)
+                                //onDeclineClick(friend)
+                                friendRequestViewModel.declineFriendRequest(
+                                    currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                                    friendId = friend.userId,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            context,
+                                            "You've declined friend request",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onFailure = {
+                                        println("something wrong while declining friend request")
+                                    }
+                                )
                                 friendRequestViewModel.sendDeclineNotification(
                                     declineFriendRequestDto = AcceptOrDeclineOrRemoveFriendDto(
                                         senderName = friend.username,
@@ -158,7 +209,8 @@ fun MyFriendsScreen(
                         SingleRecordOfFriendsList(
                             myInvitationList = false,
                             onSeeProfileClick = {
-                                onSeeProfileClick(friend.userId)
+                                userSearchViewModel.getUserBasedOnUserId(friend.userId) {}
+                                onSeeProfileClick()
                             },
                             onSendMessageClick = { },
                             onDeclineClick = { },
@@ -180,7 +232,17 @@ fun MyFriendsScreen(
                 dialogState = alertDialogState,
                 changeDialogState = { newValue -> alertDialogState = newValue },
                 onRemoveFriendClick = {
-                    onRemoveFriendClick(friend)
+                    friendRequestViewModel.deleteFriend(
+                        currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                        friendId = friend.userId,
+                        onSuccess = {
+                            Toast.makeText(
+                                context,
+                                "Friend successfully deleted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
                     friendRequestViewModel.sendRemoveNotification(
                         removeDto = AcceptOrDeclineOrRemoveFriendDto(
                             senderName = friend.username,
@@ -193,9 +255,6 @@ fun MyFriendsScreen(
         }
     }
 }
-// todo jak sie akceptuje zaproszenie i odrazu sie przechodzi do My Friends to nie ma nowego znajomego
-// todo trezba przeladowac zeby sie pojawilo (czyli jescse raz kliknac na zakladke My Friends)
-
 
 @Composable
 fun SingleRecordOfFriendsList(
@@ -273,7 +332,8 @@ fun SingleRecordOfFriendsList(
                     ) {
                         Text(
                             text = if (myInvitationList) "Accept" else "Send Message",
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
+                            maxLines = 1,
                             color = Color.White
                         )
                     }

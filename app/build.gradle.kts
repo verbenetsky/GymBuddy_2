@@ -8,6 +8,7 @@ plugins {
 }
 
 android {
+
     namespace = "com.example.gymbuddy"
     compileSdk = 35
 
@@ -20,6 +21,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GENERATIVE_API_KEY", "\"REDACTED_GEMINI_KEY\"") // api chatBot
+        buildConfigField("String", "GENERATIVE_MODEL_NAME", "\"gemini-2.0-flash-exp\"") // model chat bot
     }
 
     buildTypes {

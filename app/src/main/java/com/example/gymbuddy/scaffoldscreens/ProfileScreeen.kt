@@ -100,13 +100,9 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil3.compose.rememberAsyncImagePainter
-import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.util.regex.Pattern
 
 @SuppressLint("MutableCollectionMutableState")
@@ -172,7 +168,6 @@ fun ProfileScreen(
             repeatMode = RepeatMode.Restart
         ), label = ""
     )
-
 
     Crossfade(targetState = authState, label = "") { state ->
         when (state) {
@@ -632,7 +627,7 @@ fun ProfileScreen(
                                         "Information successfully updated",
                                         Toast.LENGTH_SHORT
                                     ).show()
-                                    userManagementViewModel.getUserFromFirestoreToViewModel()
+                                    userManagementViewModel.fetchUserData()
                                 },
                                 onFailure = {
                                     Toast.makeText(

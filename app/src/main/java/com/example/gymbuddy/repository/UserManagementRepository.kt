@@ -11,7 +11,7 @@ interface UserManagementRepository {
     suspend fun getUser(userId: String): Result<UserFoundInformation>
     suspend fun addUsernameToDataBase(username: String): Result<Boolean>
     suspend fun deleteUsernameFromDataBase(username: String): Result<Boolean>
-    suspend fun searchUser(username: String): Result<List<UserFoundInformation>>
+    suspend fun searchUser(username: String): Result<UserFoundInformation>
     suspend fun addFcmTokenToDataBase(userId: String, token: String): Result<Boolean>
     suspend fun getFcmToken(): Result<String>
 }

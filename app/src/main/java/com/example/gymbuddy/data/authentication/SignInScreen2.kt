@@ -49,7 +49,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.gymbuddy.utils.rememberImeState
 
 @Composable
@@ -199,7 +198,7 @@ fun SignInScreen2(
                         password = password,
                         onSuccess = {
                             navigateToMyApp()
-                            userManagementViewModel.getUserFromFirestoreToViewModel()
+                            userManagementViewModel.fetchUserData()
                             Toast.makeText(
                                 context,
                                 "Log in Successfully",

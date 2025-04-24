@@ -1,8 +1,17 @@
 package com.example.gymbuddy.ui.theme
 
-import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -11,10 +20,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 
 
 private val lightScheme = lightColorScheme(
@@ -110,34 +119,47 @@ val unspecified_scheme = ColorFamily(
 @Composable
 fun GymBuddyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = false,
-    content: @Composable() () -> Unit
+    content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> darkScheme
-        else -> lightScheme
-    }
+    val statusBarColor = if (darkTheme) Color.Black else Color.White
 
     val systemUiController = rememberSystemUiController()
-    val isDarkTheme = isSystemInDarkTheme()
-
     SideEffect {
-
+        // setStatusBarColor - dziala na androidach ponizej 15, na 15 juz inne sztuczki trzeba robic
         systemUiController.setStatusBarColor(
-            color = if(isDarkTheme) Color.Black else Color.White
+            color     = Color.Transparent,
+            darkIcons = !darkTheme
         )
     }
 
+    //setStatusBarColor and R.attr#statusBarColor are deprecated and have no effect on Android 15.
+
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+        colorScheme = if (darkTheme) darkScheme else lightScheme,
+        typography  = Typography,
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            // Fake status‑bar background
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(statusBarColor)
+            )
+
+            // Your app’s content — remember to inset it so it doesn’t go under your fake bar
+            Column(Modifier.statusBarsPadding()) {
+                content()
+            }
+        }
+    }
 }
+
+//Na Androidzie 15 i Material You Google całkowicie
+// przerzuciło rysowanie paska statusu na siebie – traktuje go jako przezroczystą warstwę
+// nad Twoją aplikacją i sam dobiera tło (w light mode jest to biały)
+
+//Status bar jest od Android 15 zawsze renderowany przez
+// system jako przezroczysty obszar + scrim (w light mode scrim jest biały,
+// w dark mode – wciąż biały, bo scrim ma na celu zachować kontrast pod każdym względem),
 

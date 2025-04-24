@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -94,22 +95,28 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 @Composable
 fun ChatScreen(
     userManagementViewModel: UserManagementViewModel,
-    userSearchViewModel: UserSearchViewModel = hiltViewModel(),
+    userSearchViewModel: UserSearchViewModel,
+    chatViewModel: ChatViewModel,
     innerNavController: NavController,
     userId: String?,
     channelID: String,
 ) {
-    val chatViewModel: ChatViewModel = hiltViewModel()
+    val uid = Firebase.auth.currentUser?.uid ?: return
+
     //curent user info
     val userInformation = userManagementViewModel.userInformationState.collectAsState()
     // user info with which we have a chat
-    val userFoundInformation = userSearchViewModel.userFoundInformation.collectAsState()
+    val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
 
-    val viewModel: ChatViewModel = hiltViewModel()
+    LaunchedEffect(Unit) {
+        chatViewModel.updateCurrentChatName(userFoundInformation.firstName)
+    }
+
     val chooserDialog = remember { mutableStateOf(false) }
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -122,7 +129,7 @@ fun ChatScreen(
             cameraImageUri.value?.let {
                 chatViewModel.sendImageMessage(
                     it, channelID, userInformation.value.username,
-                    receiverFcmToken = userFoundInformation.value.fcmToken,
+                    receiverFcmToken = userFoundInformation.fcmToken,
                 )
             }
         }
@@ -136,29 +143,34 @@ fun ChatScreen(
                 it,
                 channelID,
                 userInformation.value.username,
-                receiverFcmToken = userFoundInformation.value.fcmToken
+                receiverFcmToken = userFoundInformation.fcmToken
             )
         }
     }
 
-
-    LaunchedEffect(Unit) {
-        viewModel.listenForMessages(channelID)
-        if (userId != null) {
-            userSearchViewModel.getUserBasedOnUserId(userId, onSuccess = {})
-        }
+    DisposableEffect(channelID) {
+        chatViewModel.startListeningForMessages(channelID)
+        onDispose { chatViewModel.stopListening() }
     }
 
-    val messages = viewModel.message.collectAsState()
+    val messages by chatViewModel.message.collectAsState()
 
     ChatListMessages(
-        messages = messages.value,
+        messages = messages,
         onSendMessage = { message ->
-            viewModel.sendMessage(
+            println("token: ${userFoundInformation.fcmToken}")
+            println("username: ${userFoundInformation.username}")
+            chatViewModel.sendMessage(
                 channelID = channelID,
-                messageText = message,
-                receiverFcmToken = userFoundInformation.value.fcmToken,
-                senderUsername = userInformation.value.username,
+                message = Message(
+                    message = message,
+                    channelId = channelID,
+                    senderId = uid,
+                    id = UUID.randomUUID().toString(),
+                    createdAt = System.currentTimeMillis(),
+                    receiverFcmToken = userFoundInformation.fcmToken,
+                    senderName = userInformation.value.username
+                )
             )
         }, onImageClick = {
             chooserDialog.value = true
@@ -220,6 +232,8 @@ fun ChatListMessages(
             reverseLayout = true
         ) {
             items(messages.reversed()) { message ->
+                println(message.message)
+                println(message.shareWorkoutMessage)
                 ChatBubble(message = message, shareWorkoutMessage = message.shareWorkoutMessage)
             }
         }
@@ -273,9 +287,8 @@ fun ChatListMessages(
 }
 
 
-
 @Composable
-fun ChatBubble(message: Message, shareWorkoutMessage: Boolean = false) {
+fun ChatBubble(message: Message, shareWorkoutMessage: Boolean) {
     val isCurrentUser = message.senderId == Firebase.auth.currentUser?.uid
     val bubbleColor = if (isCurrentUser) Color(0xFF8A6F4A) else Color(0xFF855400).copy(alpha = 0.8f)
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
@@ -320,6 +333,7 @@ fun ChatBubble(message: Message, shareWorkoutMessage: Boolean = false) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
+
                         if (shareWorkoutMessage) {
                             AndroidView(
                                 factory = { ctx ->
@@ -355,7 +369,6 @@ fun ChatBubble(message: Message, shareWorkoutMessage: Boolean = false) {
         }
     }
 }
-
 
 
 @Composable

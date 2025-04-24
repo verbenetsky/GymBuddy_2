@@ -9,6 +9,5 @@ data class Message(
     val senderName: String = "",
     val receiverFcmToken: String = "",
     val imageUrl: String? = null,
-    val senderImage: String? = null,
     val shareWorkoutMessage: Boolean = false
 )

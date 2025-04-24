@@ -1,5 +1,6 @@
 package com.example.gymbuddy.scaffoldscreens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,84 +39,179 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
-import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.data.authentication.UserSearchViewModel.UserSearchState
+import com.example.gymbuddy.friends.FriendRequestInformationDto
 import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun SearchScreen(
-    userSearchState: UserSearchViewModel.UserSearchState,
     friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
-    onSearchClick: (UserFoundInformation) -> Unit,
     onGuestProfileClick: () -> Unit,
     onProfileClick: () -> Unit,
-    onRemoveClick: () -> Unit,
-    onDeclineClick: () -> Unit,
-    buttonStateManager: ButtonStateManager,
-    onSendRequestClick: () -> Unit,
     userSearchViewModel: UserSearchViewModel,
     modifier: Modifier = Modifier
 ) {
-    val userSearchQuery by userSearchViewModel.searchQuery.collectAsState()
+    val context = LocalContext.current
+    val uid = Firebase.auth.currentUser?.uid ?: return
+
     val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
     var alertDialogState by remember { mutableStateOf(false) }
 
+    var searchFieldValue by remember { mutableStateOf("") }
+
+    val userSearchState by userSearchViewModel.userSearchState.collectAsState()
+
+    // val buttonState by buttonStateManager.buttonState.collectAsState()
+
+    // za kazdym razem jak powracamy do ekranu search to zerujemy stan zeby uniknac takiej sytuacji ze
+    // zostanie wyszukany jakis user (friend) ale w polu searchFieldValue jest pusto
     LaunchedEffect(Unit) {
-        userSearchViewModel.clearSearchQuery()
+        userSearchViewModel.updateSearchState(UserSearchState.NothingFound)
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 2.dp, vertical = 16.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
         OutlinedTextField(
-            value = userSearchQuery,
-            onValueChange = { userSearchViewModel.updateUserSearchQuery(it) },
+            value = searchFieldValue,
+            onValueChange = { searchFieldValue = it },
             singleLine = true,
             label = { Text(text = "Enter user's username to search") },
             trailingIcon = {
-                IconButton(onClick = { onSearchClick(userFoundInformation) }) {
+                IconButton(onClick = {
+                    userSearchViewModel.searchUser(
+                        username = searchFieldValue,
+                        onSuccess = {
+                            userSearchViewModel.updateSearchState(UserSearchState.FoundUser)
+                        },
+                        onFailure = {
+                            Toast.makeText(
+                                context,
+                                "Nothing found",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onNoOneFound = {
+                            Toast.makeText(context, "No user found", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (userSearchState == UserSearchViewModel.UserSearchState.FoundUser) {
-            SingleRecordOfSearch(
-                onProfileClick = onProfileClick,
-                onSendRequestClick = onSendRequestClick,
-                userSearchViewModel = userSearchViewModel,
-                buttonStateManager = buttonStateManager,
-                onGuestProfileClick = onGuestProfileClick,
-                onDeclineClick = onDeclineClick,
-                onRemoveClick = { alertDialogState = true }
-            )
+        // jesli znajdziemy konkretnego usera to mamy kilka opcji do wyboru:
+        if (userSearchState == UserSearchState.FoundUser) {
+
+            DisposableEffect(uid, userFoundInformation.userId) {
+                friendRequestViewModel.startObservingButton(uid, userFoundInformation.userId)
+                onDispose { friendRequestViewModel.stopObservingButton() }
+            }
+
+            // Teraz możesz bezpiecznie kolekcjonować stan przycisku
+            val buttonState by friendRequestViewModel.buttonState
+                .map { it?.name ?: "" }
+                .collectAsState(initial = null)
+
+            if (buttonState != null) {
+                SingleRecordOfSearch(
+                    onProfileClick = onProfileClick,
+                    // mozemy wyslac request (jesli nie mamy zadnej relacji z tym userem)
+                    onSendRequestClick = {
+                        val friendRequestInformationDto = FriendRequestInformationDto(
+                            receiverId = userFoundInformation.userId,
+                            date = System.currentTimeMillis(),
+                            senderId = Firebase.auth.currentUser?.uid ?: "",
+                        )
+                        friendRequestViewModel.sendFriendRequest(
+                            friendRequestDto = friendRequestInformationDto,
+                            onSuccess = {
+                                friendRequestViewModel.sendFriendRequestToUser(friendRequestInformationDto) // wysylanie powiadomienia
+                                //buttonStateManager.updateState("Request Sent")
+                                Toast.makeText(
+                                    context,
+                                    "Friend request successfully sent",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            onFailure = { e ->
+                                println("Something gone wrong: $e")
+                                Toast.makeText(
+                                    context,
+                                    "Something happened, try again!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    },
+                    userFoundInformation = userFoundInformation,
+                    buttonState = buttonState!!,
+                    onGuestProfileClick = onGuestProfileClick,
+
+                    // mozemy odrzucic request (jesli do nas wyslali zaproszenie)
+                    onDeclineClick = {
+                        //buttonStateManager.updateState("Send Request")
+                        friendRequestViewModel.declineFriendRequest(
+                            currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                            friendId = userFoundInformation.userId,
+                            onSuccess = {
+                                Toast.makeText(
+                                    context,
+                                    "Friend request declined",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            onFailure = {
+                                println("declining failed")
+                            }
+                        )
+                        userSearchViewModel.searchUser(
+                            username = userFoundInformation.username,
+                            onSuccess = {
+                                userSearchViewModel.updateSearchState(UserSearchState.FoundUser)
+                            },
+                        )
+                    },
+
+                    // mozemy usunac ze znajomych (jesli mamy w znajomych)
+                    onRemoveClick = {
+                        alertDialogState = true
+                    }
+                )
+            }
         } else {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 when (userSearchState) {
-                    UserSearchViewModel.UserSearchState.NothingFound ->
+                    UserSearchState.NothingFound ->
                         Text(text = "Nothing found", style = MaterialTheme.typography.appBarTitle)
 
-                    UserSearchViewModel.UserSearchState.Loading ->
+                    UserSearchState.Loading ->
                         CircularProgressIndicator()
 
                     else -> {
@@ -127,13 +224,24 @@ fun SearchScreen(
             dialogState = alertDialogState,
             changeDialogState = { newState -> alertDialogState = newState },
             onRemoveFriendClick = {
-                onRemoveClick()
+                friendRequestViewModel.deleteFriend(
+                    currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                    friendId = userFoundInformation.userId,
+                    onSuccess = {
+                        Toast.makeText(
+                            context,
+                            "Friend Removed",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
                 friendRequestViewModel.sendRemoveNotification(
                     AcceptOrDeclineOrRemoveFriendDto(
                         it.username,
                         it.fcmToken
                     )
                 )
+                // todo refresh
             },
             userFoundInformation = userFoundInformation
         )
@@ -148,12 +256,10 @@ fun SingleRecordOfSearch(
     onGuestProfileClick: () -> Unit,
     onRemoveClick: () -> Unit,
     onDeclineClick: () -> Unit,
-    buttonStateManager: ButtonStateManager,
-    userSearchViewModel: UserSearchViewModel,
+    buttonState: String,
+    userFoundInformation: UserFoundInformation,
     modifier: Modifier = Modifier
 ) {
-    val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
-    val buttonStatus by buttonStateManager.buttonState.collectAsState()
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid
 
@@ -215,20 +321,19 @@ fun SingleRecordOfSearch(
                     if (userFoundInformation.userId != userId) {
                         Button(
                             onClick = {
-                                if (buttonStatus == "Remove")
-                                    onRemoveClick()
-                                else if (buttonStatus == "Decline")
-                                    onDeclineClick()
-                                else
-                                    onSendRequestClick()
+                                when (buttonState) {
+                                    "Remove" -> onRemoveClick()
+                                    "Decline" -> onDeclineClick()
+                                    else -> onSendRequestClick()
+                                }
                             },
                             shape = RoundedCornerShape(4.dp),
                             modifier = Modifier.weight(1f),
-                            enabled = buttonStatus == "Send Request" || buttonStatus == "Send Message" || buttonStatus == "Remove" || buttonStatus == "Decline",
+                            enabled = buttonState == "SendRequest" || buttonState == "Send Message" || buttonState == "Remove" || buttonState == "Decline",
                             contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                when (buttonStatus) {
-                                    "Send Request" -> Color(0x0F0D791C).copy(alpha = 0.7f)
+                                when (buttonState) {
+                                    "SendRequest" -> Color(0xFF06B936).copy(alpha = 0.7f)
                                     "Remove" -> Color(0xFFD31212)
                                     "Decline" -> Color(0xFFD31212)
                                     else -> Color(0xFFFFCA89)
@@ -236,10 +341,10 @@ fun SingleRecordOfSearch(
                             )
                         ) {
                             Text(
-                                text = buttonStatus,
+                                text = buttonState,
                                 fontSize = 13.sp,
-                                color = when (buttonStatus) {
-                                    "Send Request" -> Color.White
+                                color = when (buttonState) {
+                                    "SendRequest" -> Color.White
                                     "Remove" -> Color.White
                                     "Decline" -> Color.White
                                     else -> LocalContentColor.current

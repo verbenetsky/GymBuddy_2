@@ -5,6 +5,8 @@ import com.example.gymbuddy.data.authentication.UserInformation
 import com.example.gymbuddy.repository.UserManagementRepository
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.snapshots
+import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
@@ -50,7 +52,10 @@ class UserManagementRepositoryImpl : UserManagementRepository {
         return try {
             db.collection("users")
                 .document(userId)
-                .set(newUserData, SetOptions.merge()) // Merge powoduje aktualizację tylko określonych pól
+                .set(
+                    newUserData,
+                    SetOptions.merge()
+                ) // Merge powoduje aktualizację tylko określonych pól
                 .await()
             Result.success(true)
         } catch (e: Exception) {
@@ -67,7 +72,10 @@ class UserManagementRepositoryImpl : UserManagementRepository {
                     println("Username already taken!")
                     throw Exception("Username already taken")
                 } else {
-                    transaction.set(docRef, emptyMap<String, Any>()) // jesli dokument nie istnieje to zapisujemy do niego pusta mape, czyli po prostu tworzymy pusty dokument
+                    transaction.set(
+                        docRef,
+                        emptyMap<String, Any>()
+                    ) // jesli dokument nie istnieje to zapisujemy do niego pusta mape, czyli po prostu tworzymy pusty dokument
                 }
             }.await()
             Result.success(true)
@@ -88,13 +96,24 @@ class UserManagementRepositoryImpl : UserManagementRepository {
         }
     }
 
-    override suspend fun searchUser(username: String): Result<List<UserFoundInformation>> {
+    // search screen
+    override suspend fun searchUser(username: String): Result<UserFoundInformation> {
         return try {
             val querySnapshot = db.collection("users")
                 .whereEqualTo("username", username)
                 .get()
                 .await()
-            Result.success(querySnapshot.toObjects(UserFoundInformation::class.java))
+
+            val document = querySnapshot.documents.firstOrNull() ?: return Result.failure(
+                NoSuchElementException("No user Found: $username"))
+
+            val user = document.toObject(UserFoundInformation::class.java)
+
+            if (user != null) {
+                Result.success(user)
+            } else {
+                Result.failure(IllegalStateException("Error while converting to UserFoundInformation"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -127,8 +146,9 @@ class UserManagementRepositoryImpl : UserManagementRepository {
     // zeby usunac usera trzeba:
     // - usunac z db +
     // - usunac jego nickaname +
-    // - usunac wszysktie jego wiadomosci
     // - usunac jego zdjecie profilowe z db +
+    // - usunac wszysktie jego wiadomosci
+    // - usunac wszystkie jego przyjazni i friends requesty todo
 
     // usuwanie z db
     override suspend fun deleteUser(userId: String): Result<Boolean> {

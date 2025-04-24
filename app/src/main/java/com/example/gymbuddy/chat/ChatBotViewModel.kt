@@ -1,154 +1,96 @@
 package com.example.gymbuddy.chat
 
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gymbuddy.BuildConfig
+import com.example.gymbuddy.data.repositoryImpl.ChatBotRepositoryImpl
 import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
-import org.intellij.markdown.html.HtmlGenerator
-import org.intellij.markdown.parser.MarkdownParser
 import javax.inject.Inject
+import javax.inject.Singleton
+
 
 @HiltViewModel
-class ChatBotViewModel @Inject constructor() : ViewModel() {
+class ChatBotViewModel @Inject constructor(
+    private val chatBotRepository: ChatBotRepositoryImpl,
+) : ViewModel() {
 
     private val _messageListChatBot = MutableStateFlow<List<ChatBotMessage>>(emptyList())
     val messageListChatBot = _messageListChatBot.asStateFlow()
 
-    private val db = Firebase.firestore
-    private val currentUserUID = Firebase.auth.currentUser!!.uid
+    private val userId = Firebase.auth.currentUser!!.uid
 
     private val _chatBotResponseState =
         MutableStateFlow<ChatBotResponseState>(ChatBotResponseState.UnActive)
     val chatBotResponseState = _chatBotResponseState.asStateFlow()
 
-    private val generativeModel: GenerativeModel = GenerativeModel(
-        modelName = "gemini-2.0-flash-exp",
-        apiKey = "REDACTED_GEMINI_KEY" //todo
-    )
+    init {
+        viewModelScope.launch {
+            chatBotRepository.observeConversation(userId)
+                .onEach { msgs ->
+                    _messageListChatBot.value = msgs
+                    // gdy pojawi się wiadomość od modelu, od razu wyłączamy „typing”
+                    if (msgs.lastOrNull()?.role == "model") {
+                        _chatBotResponseState.value = ChatBotResponseState.UnActive
+                    }
+                }
+                .launchIn(this)
+        }
+    }
 
     fun sendMessage(question: String) {
         viewModelScope.launch {
-            val chat = generativeModel.startChat(
-                history = _messageListChatBot.value.map { content(it.role) { text(it.message) } }
-                    .toList()
-            )
-
-            val message = ChatBotMessage(
-                message = question,
-                role = "user",
-                createdAt = System.currentTimeMillis()
-            )
-
-            changeChatBotResponseState(ChatBotResponseState.Typing)
-
-            db.collection("chatBot")
-                .document(currentUserUID)
-                .collection("conversation_with_bot")
-                .add(message)
-
-            val fullQuestion = "If the user's query does not pertain to gym workouts, nutrition advice, recovery strategies, " +
-                    "or comprehensive fitness planning (including motivation and self-improvement), politely ask for " +
-                    "clarification on what specific fitness or nutrition information they are seeking. " +
-                    "You are a knowledgeable and experienced gym trainer specializing in workouts, nutrition, recovery, " +
-                    "and comprehensive fitness planning. " +
-                    "Provide clear, detailed, and practical advice using a friendly and professional tone. " +
-                    "Whenever possible, structure your response using bullet points or short numbered steps to enhance clarity. " +
-                    "Focus exclusively on topics related to gym, fitness, motivation, self-improvement, and nutrition. " +
-                    question
-
-
-            val response = chat.sendMessage(fullQuestion)
-
-            val responseMessage = ChatBotMessage(
-                message = convertMarkdownToHtml(response.text.toString()),
-                role = "model",
-                createdAt = System.currentTimeMillis()
-            )
-
-            db.collection("chatBot")
-                .document(currentUserUID)
-                .collection("conversation_with_bot")
-                .add(responseMessage)
-
-            changeChatBotResponseState(ChatBotResponseState.UnActive)
+            _chatBotResponseState.value = ChatBotResponseState.Typing
+            val history = _messageListChatBot.value
+            val result = chatBotRepository.sendMessage(userId, question, history)
+            if (result.isSuccess) {
+                println("message sent successfully")
+            } else {
+                println("error: ${result.exceptionOrNull()?.localizedMessage ?: "Unknown error"}")
+            }
         }
     }
 
-    fun listenForMessages() {
-        db.collection("chatBot")
-            .document(currentUserUID)
-            .collection("conversation_with_bot")
-            .orderBy("createdAt", Query.Direction.ASCENDING)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    println("Listen failed: $e")
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    if (snapshot.isEmpty) {
-                        _messageListChatBot.value = emptyList()
-                    } else {
-                        val messages = snapshot.documents.mapNotNull {
-                            it.toObject(ChatBotMessage::class.java)
-                        }
-                        _messageListChatBot.value = messages
-                    }
-                }
-            }
-    }
-
-    fun convertMarkdownToHtml(markdownText: String): String {
-        // Używamy CommonMark – można też rozszerzyć lub zmienić flavour
-        val flavour = CommonMarkFlavourDescriptor()
-        // Parsujemy strukturę dokumentu Markdown
-        val parser = MarkdownParser(flavour)
-        val parsedTree = parser.buildMarkdownTreeFromString(markdownText)
-        // Generujemy HTML na podstawie sparsowanego drzewa
-        val htmlGenerator = HtmlGenerator(markdownText, parsedTree, flavour)
-        return htmlGenerator.generateHtml()
-    }
-
-
-    private fun changeChatBotResponseState(newState: ChatBotResponseState) {
-        _chatBotResponseState.value = newState
-    }
-
-    fun deleteChatBotConversation(onSuccess: () -> Unit) {
+    fun deleteConversation(onSuccess: () -> Unit) {
         viewModelScope.launch {
-            try {
-                val querySnapshot = db.collection("chatBot")
-                    .document(currentUserUID)
-                    .collection("conversation_with_bot")
-                    .get()
-                    .await()
-                val batch = db.batch()
-                for (document in querySnapshot) {
-                    batch.delete(document.reference)
-                }
-                batch.commit().await()
+            val res = chatBotRepository.deleteChatBotConversation(userId)
+            if (res.isSuccess) {
                 _messageListChatBot.value = emptyList()
-                println("All documents have been deleted.")
                 onSuccess()
-            } catch (e: Exception) {
-                println("Error during deletion: $e")
+            } else {
+                println("chat bot error while deleting conv")
             }
         }
-
     }
+
 }
 
 sealed class ChatBotResponseState {
     data object Typing : ChatBotResponseState()
     data object UnActive : ChatBotResponseState()
+}
+
+// ChatBotModule.kt
+@Module
+@InstallIn(SingletonComponent::class)
+object ChatBotModule {
+
+    @Provides
+    @Singleton
+    fun provideGenerativeModel(): GenerativeModel =
+        GenerativeModel(
+            modelName = BuildConfig.GENERATIVE_MODEL_NAME,
+            apiKey    = BuildConfig.GENERATIVE_API_KEY
+        )
 }

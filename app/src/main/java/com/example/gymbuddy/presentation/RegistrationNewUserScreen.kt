@@ -164,7 +164,7 @@ fun RegistrationNewUserScreen(
                             ) // dodajemy takiego Usera do bazy danych
 
                             signInViewModel.updateAuthState(SignInViewModel.AuthState.Authenticated) // ustawiamy stan na Authenticated
-                            userManagementViewModel.getUserFromFirestoreToViewModel(false)  // dodajemy fcm token do bazy danych
+                            userManagementViewModel.fetchUserData(false)  // dodajemy fcm token do bazy danych
                             signInViewModel.clearUserData() // czyszcimy userData
                             navigateToMyApp() // przechodzimy do aplikacji
                         },
@@ -174,13 +174,6 @@ fun RegistrationNewUserScreen(
                             Toast.makeText(
                                 context,
                                 "Username is already taken, try another one",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        onEmptyUsername = {
-                            Toast.makeText(
-                                context,
-                                "Username cannot be empty",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

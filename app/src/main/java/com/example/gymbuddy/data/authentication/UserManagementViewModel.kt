@@ -8,24 +8,18 @@ import com.example.gymbuddy.data.repositoryImpl.CloudStorageRepositoryImpl
 import com.example.gymbuddy.data.repositoryImpl.UserManagementRepositoryImpl
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.messaging.FirebaseMessaging
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
-import javax.inject.Inject
-
 
 class UserManagementViewModel(
     private val userRepository: UserManagementRepositoryImpl = UserManagementRepositoryImpl(),
     private val cloudStorageRepository: CloudStorageRepositoryImpl = CloudStorageRepositoryImpl(),
-) :
-    ViewModel() {
+) : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
 
@@ -35,18 +29,15 @@ class UserManagementViewModel(
     private val _imageState = MutableStateFlow<ImageState>(ImageState.LoadedImage)
     val imageState: StateFlow<ImageState> = _imageState.asStateFlow()
 
-    private val _usernameIsUsed = MutableStateFlow(false)
-
-    private val _bufferUserName: MutableStateFlow<String> = MutableStateFlow("")
 
     init {
-        getUserFromFirestoreToViewModel()
+        fetchUserData()
     }
 
-    fun getUserFromFirestoreToViewModel(logInOnly: Boolean = true) {
+    // from Firestore to viewModel
+    fun fetchUserData(logInOnly: Boolean = true) {
         println("pobieranie danych z bazy")
         viewModelScope.launch {
-            val auth: FirebaseAuth = Firebase.auth
             val userId = auth.currentUser?.uid
             if (logInOnly) {
                 if (userId == null) {
@@ -78,9 +69,6 @@ class UserManagementViewModel(
     }
 
     //------------------------------------Update Fields---------------------------------------------
-//    fun updateUsernameIsUsed(isUsed: Boolean) {
-//        _usernameIsUsed.value = isUsed
-//    }
 
     fun updateFirstName(firstName: String) {
         if (firstName.matches(lastAndFirstNamePattern.toRegex())) {
@@ -100,12 +88,6 @@ class UserManagementViewModel(
         }
     }
 
-//    fun updateBufferUsername(username: String) {
-//        if (username.matches(usernamePattern.toRegex())) {
-//            _bufferUserName.value = username
-//        }
-//    }
-
     fun updateDateOfBirth(dateOfBirth: Long) {
         _userInformationState.update { currentState -> currentState.copy(dateOfBirth = dateOfBirth) }
     }
@@ -124,14 +106,7 @@ class UserManagementViewModel(
         _userInformationState.update { currentState ->
             currentState.copy(
                 userId = userData.userId,
-                email = userData.email,
-                firstName = currentState.firstName,
-                lastName = currentState.lastName,
-                username = currentState.username,
-                profilePictureUrl = currentState.profilePictureUrl,
-                dateOfBirth = currentState.dateOfBirth,
-                hobbies = currentState.hobbies,
-                goal = currentState.goal
+                email = userData.email
             )
         }
     }
@@ -140,10 +115,10 @@ class UserManagementViewModel(
         _userInformationState.value = userInformation
     }
 
-
     fun clearForm() {
-        _userInformationState.value = UserInformation()
+        _userInformationState.update { UserInformation() }
     }
+
 
     fun addUser(
         userInformation: UserInformation,
@@ -235,26 +210,16 @@ class UserManagementViewModel(
         username: String,
         onSuccess: () -> Unit = {},
         onFailure: () -> Unit,
-        onEmptyUsername: () -> Unit = {},
     ) {
 
-        if (_bufferUserName.value == "" && _userInformationState.value.username == "") {
-            onEmptyUsername()
-            return
-        }
-
-        if (_bufferUserName.value != _userInformationState.value.username) {
-            viewModelScope.launch {
-                val result = userRepository.addUsernameToDataBase(username)
-                if (result.isSuccess) {
-                    println("Username added successfully")
-                    //updateUsernameIsUsed(false)
-                    onSuccess()
-                } else {
-                    println("Error adding username to database: ${result.exceptionOrNull()?.message}")
-                    //updateUsernameIsUsed(true)
-                    onFailure()
-                }
+        viewModelScope.launch {
+            val result = userRepository.addUsernameToDataBase(username)
+            if (result.isSuccess) {
+                println("Username added successfully")
+                onSuccess()
+            } else {
+                println("Error adding username to database: ${result.exceptionOrNull()?.message}")
+                onFailure()
             }
         }
     }

@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.gymbuddy.chat.ChatViewModel
+import com.example.gymbuddy.chat.Message
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.datasource.SortAndFilterOption.additionalSortingOptionCardioWorkout
 import com.example.gymbuddy.datasource.SortAndFilterOption.additionalSortingOptionHITWorkout
@@ -81,15 +82,21 @@ import com.example.gymbuddy.utils.CommonUtils.workoutStateToMarkdown
 import com.example.gymbuddy.workout.WorkoutState
 import com.example.gymbuddy.workout.WorkoutViewModel
 import com.example.gymbuddy.workout.dateConverter
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.Query
+import com.google.firebase.ktx.Firebase
+import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
+import org.intellij.markdown.html.HtmlGenerator
+import org.intellij.markdown.parser.MarkdownParser
 import java.util.Locale
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun MyWorkoutsScreen(
     innerNavController: NavController,
-    friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
+    friendRequestViewModel: FriendRequestViewModel,
     chatViewModel: ChatViewModel = hiltViewModel(),
     navigateToAddWorkoutScreen: () -> Unit,
     navigateToEditScreen: () -> Unit,
@@ -97,6 +104,7 @@ fun MyWorkoutsScreen(
         innerNavController.getBackStackEntry("about_screen")
     ),
 ) {
+    val uid = Firebase.auth.currentUser?.uid ?: return
     val context = LocalContext.current
     var selectedWorkoutForDeletion by remember { mutableStateOf<WorkoutState?>(null) }
     var dialogState by remember { mutableStateOf(false) }
@@ -112,8 +120,7 @@ fun MyWorkoutsScreen(
     val sheetStateSortFilter = rememberModalBottomSheetState()
     var showBottomSheetSortFilter by remember { mutableStateOf(false) }
 
-    val friendsList =
-        friendRequestViewModel.friendList.collectAsState()
+    val friendsList by friendRequestViewModel.friendList.collectAsState()
 
     var selectedOption by remember { mutableStateOf(sortingOptions[0]) }
 
@@ -266,7 +273,7 @@ fun MyWorkoutsScreen(
                     items(workoutListState.value) { workout ->
                         Workout(
                             onShareClick = {
-                                if (friendsList.value.isEmpty()) {
+                                if (friendsList.isEmpty()) {
                                     Toast.makeText(
                                         context,
                                         "You don't have any friends to share with.",
@@ -337,41 +344,49 @@ fun MyWorkoutsScreen(
                     )
                 }
             }
+
             if (showBottomSheetShareWithFriend) {
                 ModalBottomSheetSendWorkoutToFriend(
                     sheetState = sheetStateShareWithFriend,
                     sheetStateChange = { newValue -> showBottomSheetShareWithFriend = newValue },
-                    friendsList = friendsList.value,
+                    friendsList = friendsList,
                     onShareWorkoutWithFriendClick = { friendInfo ->
 
-                        chatViewModel.findChannelIdUsingUsersId(
-                            friendInfo.userId,
+                        chatViewModel.findChannel(
+                            currentUserId = uid,
+                            otherUserId = friendInfo.userId,
                             onSuccess = { channelId ->
-                                if (channelId != null) {
-                                    chatViewModel.sendMessage(
-                                        channelID = channelId,
-                                        messageText = workoutStateToMarkdown(workoutToShare),
-                                        image = null,
+
+                                chatViewModel.sendMessage(
+                                    isSharedWorkout = true,
+                                    channelID = channelId,
+                                    message = Message(
+                                        id = UUID.randomUUID().toString(),
+                                        senderId = uid,
+                                        message = convertMarkdownToHtml(
+                                            workoutStateToMarkdown(
+                                                workoutToShare
+                                            )
+                                        ),
+                                        channelId = channelId,
+                                        createdAt = System.currentTimeMillis(),
+                                        senderName = "",
                                         receiverFcmToken = friendInfo.fcmToken,
-                                        isShareWorkoutMessage = true,
-                                        senderUsername = ""
+                                        shareWorkoutMessage = true
                                     )
-                                    Toast.makeText(
-                                        context,
-                                        "Workout Send",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Try again later",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }, onFailure = {
+                                )
+                                // 1.messageText = workoutStateToMarkdown(workoutToShare),
+                                // 2. message = convertMarkdownToHtml(messageText ?: ""),
                                 Toast.makeText(
                                     context,
-                                    "Something gone terribly wrong! Try again",
+                                    "Workout Send",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            },
+                            onFailure = {
+                                Toast.makeText(
+                                    context,
+                                    "Try again",
                                     Toast.LENGTH_LONG
                                 ).show()
                             })
@@ -518,9 +533,9 @@ fun Workout( // singel record of workout
                             exercise.listOfHits.sumOf { it.duration.toIntOrNull() ?: 0 }
                         }
                         val prefix = if (workoutState.status == "Planned")
-                            "Overall your hits will last:"
+                            "Overall hits will last:"
                         else
-                            "Overall your hits lasted:"
+                            "Overall hits lasted:"
                         "$prefix $totalDuration sec"
                     }
 
@@ -531,7 +546,7 @@ fun Workout( // singel record of workout
                             }
                         }
                         val prefix = if (workoutState.status == "Planned")
-                            "Overall you will lift:"
+                            "Overall you'll lift:"
                         else
                             "Overall you lifted:"
                         "$prefix $totalWeight kg"
@@ -762,6 +777,17 @@ fun ModalBottomSheetSortFilter(
             }
         }
     }
+}
+
+private fun convertMarkdownToHtml(markdownText: String): String {
+    // Używamy CommonMark – można też rozszerzyć lub zmienić flavour
+    val flavour = CommonMarkFlavourDescriptor()
+    // Parsujemy strukturę dokumentu Markdown
+    val parser = MarkdownParser(flavour)
+    val parsedTree = parser.buildMarkdownTreeFromString(markdownText)
+    // Generujemy HTML na podstawie sparsowanego drzewa
+    val htmlGenerator = HtmlGenerator(markdownText, parsedTree, flavour)
+    return htmlGenerator.generateHtml()
 }
 
 

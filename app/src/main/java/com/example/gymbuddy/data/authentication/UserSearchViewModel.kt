@@ -21,104 +21,14 @@ class UserSearchViewModel(
     private val _userSearchState = MutableStateFlow<UserSearchState>(UserSearchState.NothingFound)
     val userSearchState: StateFlow<UserSearchState> = _userSearchState.asStateFlow()
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    fun clearUserFoundInformation() {
-        _userFoundInformation.value = UserFoundInformation()
-    }
-
-    private fun updateFirstNameOfFoundUser(firstName: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                firstName = firstName
-            )
-        }
-    }
-
-    private fun updateLastNameOfFoundUser(lastName: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                lastName = lastName
-            )
-        }
-    }
-
-    private fun updateUserIDOfFoundUser(userID: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                userId = userID
-            )
-        }
-    }
-
-    private fun updateUsernameOfFoundUser(username: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                username = username
-            )
-        }
-    }
-
-    private fun updateProfilePictureUrlOfFoundUser(profilePictureUrl: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                profilePictureUrl = profilePictureUrl
-            )
-        }
-    }
-
-    private fun updateEmailOfFoundUser(email: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                email = email
-            )
-        }
-    }
-
-    private fun updateDateOfBirthOfFoundUser(dateOfBirth: Long) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                dateOfBirth = dateOfBirth
-            )
-        }
-    }
-
-    private fun updateHobbiesOfFoundUser(hobbies: List<String>) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                hobbies = hobbies
-            )
-        }
-    }
-
-    private fun updateGoalOfFoundUser(goal: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                goal = goal
-            )
-        }
-    }
-
-    private fun updateFcmTokenOfFoundUser(token: String) {
-        _userFoundInformation.update { currentState ->
-            currentState.copy(
-                fcmToken = token
-            )
-        }
-    }
-
-    fun updateUserFoundInfo(userFoundInformation: UserFoundInformation) {
-        _userFoundInformation.value = userFoundInformation
-    }
-
+    // Chat Screen
     fun getUserBasedOnUserId(userId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
                 val result = userRepository.getUser(userId)
                 if (result.isSuccess) {
                     val doc = result.getOrNull() ?: UserFoundInformation()
-                    updateUserFoundInfo(doc)
+                    updateUserFoundInformation(doc)
                     onSuccess()
                 }
             } catch (e: Exception) {
@@ -127,10 +37,12 @@ class UserSearchViewModel(
         }
     }
 
+    // message screen
     suspend fun getUserBasedOnUserId(userId: String): UserFoundInformation? {
         return try {
             val result = userRepository.getUser(userId)
             if (result.isSuccess) {
+                _userFoundInformation.value = result.getOrNull()!!
                 result.getOrNull()
             } else {
                 null
@@ -141,52 +53,41 @@ class UserSearchViewModel(
         }
     }
 
-    fun updateUserSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun clearSearchQuery() {
-        _searchQuery.value = ""
-    }
-
-    fun updateSearchState(state: UserSearchState) {
-        _userSearchState.value = state
+    fun updateUserFoundInformation(userFoundInformation: UserFoundInformation) {
+        _userFoundInformation.update { userFoundInformation }
     }
 
     fun searchUser(
         username: String,
-        onSuccessSearch: () -> Unit,
-        onFailureSearch: () -> Unit
+        onSuccess: () -> Unit = {},
+        onFailure: () -> Unit = {},
+        onNoOneFound: () -> Unit = {}
     ) {
         viewModelScope.launch {
             updateSearchState(UserSearchState.Loading)
             val result = userRepository.searchUser(username)
-            println(result)
 
-            result.onSuccess { userList ->
-                if (userList.isEmpty()) {
-                    onFailureSearch()
-                    println("Failure: search returned empty list")
-                } else {
-                    updateUserIDOfFoundUser(userList[0].userId)
-                    onSuccessSearch()
-                    updateFirstNameOfFoundUser(userList[0].firstName)
-                    updateLastNameOfFoundUser(userList[0].lastName)
-                    updateUsernameOfFoundUser(userList[0].username)
-                    updateProfilePictureUrlOfFoundUser(userList[0].profilePictureUrl)
-                    updateEmailOfFoundUser(userList[0].email)
-                    updateDateOfBirthOfFoundUser(userList[0].dateOfBirth)
-                    updateHobbiesOfFoundUser(userList[0].hobbies)
-                    updateGoalOfFoundUser(userList[0].goal)
-                    updateFcmTokenOfFoundUser(userList[0].fcmToken)
-                    println("Success: found ${userList.size} user(s)")
+            if (result.isSuccess) {
+                result.getOrNull()?.let { user ->
+                    updateUserFoundInformation(user) // jesli znajdziemy kogos to updejtujemy UserFoundInformation
+                    onSuccess()
+                    println("userFound: ${result.getOrNull()}")
+                } ?: run {
+                    onNoOneFound()
+                    updateSearchState(UserSearchState.NothingFound)
                 }
-            }
-            result.onFailure { error ->
-                onFailureSearch()
-                println("Error searching user: ${error.message}")
+            } else {
+                onFailure()
+                println("Error: ${result.exceptionOrNull()?.localizedMessage ?: ""}")
+                updateSearchState(UserSearchState.NothingFound)
             }
         }
+    }
+
+    //----------------------------------------------------------------------------------------------
+
+    fun updateSearchState(state: UserSearchState) {
+        _userSearchState.value = state
     }
 
     sealed class UserSearchState {

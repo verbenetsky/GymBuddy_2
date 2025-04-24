@@ -11,7 +11,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.gymbuddy.data.authentication.SignInViewModel
@@ -19,14 +18,10 @@ import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.navigation.NavGraph
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
-import com.google.android.gms.auth.api.identity.Identity
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import com.example.gymbuddy.buttonState.ButtonStateManager
+import com.example.gymbuddy.chat.ChatViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -55,22 +50,19 @@ class MainActivity : ComponentActivity() {
                     val userManagementViewModel: UserManagementViewModel = viewModel()
                     val userSearchViewModel: UserSearchViewModel = viewModel()
                     val authState = signInViewModel.authState.collectAsStateWithLifecycle()
-                    val buttonStateManager = ButtonStateManager
+                    val chatViewModel: ChatViewModel = viewModel( )
 
                     NavGraph(
                         navController = navController,
                         signInViewModel = signInViewModel,
                         userManagementViewModel = userManagementViewModel,
                         userSearchViewModel = userSearchViewModel,
-                        lifecycleScope = lifecycleScope,
-                        applicationContext = applicationContext,
-                        buttonStateManager = buttonStateManager,
+                        chatViewModel = chatViewModel,
                         authState = authState.value,
                     )
                 }
             }
         }
-
     }
 
     private fun requestNotificationPermission() {

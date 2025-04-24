@@ -7,7 +7,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -91,46 +91,51 @@ import kotlinx.coroutines.launch
 @Composable
 fun MessagesScreen(
     channelViewModel: ChannelViewModel = hiltViewModel(),
-    friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
-    userSearchViewModel: UserSearchViewModel = hiltViewModel(),
-    chatViewModel: ChatViewModel = hiltViewModel(),
+    friendRequestViewModel: FriendRequestViewModel,
+    userSearchViewModel: UserSearchViewModel,
+    chatViewModel: ChatViewModel,
     innerNavController: NavController,
     modifier: Modifier = Modifier
 ) {
     val addChannel = remember { mutableStateOf(false) }
+    val uid = Firebase.auth.currentUser?.uid ?: return
+    val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
     val context = LocalContext.current
-    val channelStatus = channelViewModel.channels.collectAsState()
-    val channelStatusList = channelStatus.value.toList()
 
-    val friendsList =
-        friendRequestViewModel.friendList.collectAsState() // lista wszystkich znajomych
+    val channelStatus by channelViewModel.channels.collectAsState()
+
+    val friendsList by friendRequestViewModel.friendList.collectAsState() // lista wszystkich znajomych
 
     // lista osob z ktorymi mozna rozpoczac czat
-    val setOfFriendsChat = channelViewModel.setOfFriendsChat.collectAsState()
-    val listOfFriendsChat = setOfFriendsChat.value.toList()
+    val friendsWithoutChat by channelViewModel.friendsWithoutChat.collectAsState()
 
-    val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(friendsList.value, channelStatus.value) {
-        if (friendsList.value.isNotEmpty() || channelStatus.value.isNotEmpty()) {
-            channelViewModel.getListOfFriendChat(
-                friendList = friendsList.value,
-                channels = channelStatus.value
-            )
-        }
+    LaunchedEffect(Unit) {
+        println("lista of friends: $friendsList")
     }
 
-    // tutaj ten scaffold teoretycznie nie jest potrzebny ale bez niego nie mozna uzyc FAB
-    // teoretycznie mozna bylo zrealizowac FAB w MyScaffold pliku ale wole odseparowac rzeczy
-    // i miec je w jednym miejscu
+    LaunchedEffect(friendsList) {
+        channelViewModel.refreshFriendsWithoutChat(friendsWithoutChat.toList())
+    }
+
+
+    DisposableEffect(uid) {
+        friendRequestViewModel.startListeningFriends(uid)
+        onDispose { friendRequestViewModel.stopListeningFriends() }
+    }
+
+    LaunchedEffect(friendsList, channelStatus) {
+        channelViewModel.refreshFriendsWithoutChat(friendsList)
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (friendsList.value.isNotEmpty() && listOfFriendsChat.isNotEmpty())
+                    if (friendsList.isNotEmpty() && friendsWithoutChat.isNotEmpty())
                         addChannel.value = true
-                    else if (listOfFriendsChat.isEmpty() && friendsList.value.isNotEmpty()) {
+                    else if (friendsWithoutChat.isEmpty() && friendsList.isNotEmpty()) {
                         Toast.makeText(
                             context,
                             "You have already started chats with all of your friends.",
@@ -181,7 +186,7 @@ fun MessagesScreen(
                         )
                     }
 
-                    items(channelStatusList) { channel ->
+                    items(channelStatus.toList()) { channel ->
                         val friendId =
                             if (channel.secondFriendId == Firebase.auth.currentUser!!.uid)
                                 channel.firstFriendId
@@ -193,7 +198,7 @@ fun MessagesScreen(
                             key1 = friendId
                         ) {
                             value = userSearchViewModel.getUserBasedOnUserId(friendId)
-                            value?.let { userSearchViewModel.updateUserFoundInfo(it) }
+                            value?.let { userSearchViewModel.updateUserFoundInformation(it) }
                         }
 
                         if (userInfo == null) {
@@ -220,9 +225,9 @@ fun MessagesScreen(
 
                             val displayLastMessage =
                                 if (lastMessage == null)
-                                    "Loading.."
+                                    ""
                                 else if (lastMessage!!.isEmpty()) {
-                                    "Photo"
+                                    ""
                                 } else {
                                     lastMessage
                                 }
@@ -230,6 +235,9 @@ fun MessagesScreen(
                             SwipeToDeleteContainer(
                                 item = channel,
                                 onDelete = { deletedChannel ->
+
+                                    chatViewModel.deleteAllImages(deletedChannel.id) // usuwamy wszystkie zdjecia
+
                                     coroutineScope.launch(Dispatchers.Main) {
                                         Toast.makeText(
                                             context,
@@ -237,15 +245,13 @@ fun MessagesScreen(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
-                                    channelViewModel.deleteChannel(
+
+                                    channelViewModel.deleteChannel( // usuwamy channel
                                         channelId = deletedChannel.id,
-                                        onSuccess = {
-                                            chatViewModel.deleteAllMessagesForParticularChat(
-                                                channelID = deletedChannel.id
-                                            )
-                                        }
+                                        onSuccess = { chatViewModel.deleteAllMessages(deletedChannel.id) } // usuwamy wszystkie wiadomosci
                                     )
                                 }
+
                             ) { ch ->
                                 println("channel id : ${ch.id}")
                                 if (displayLastMessage != null) {
@@ -257,6 +263,12 @@ fun MessagesScreen(
                                     ) {
                                         println("user info: $userInfo")
                                         innerNavController.navigate("chat/${ch.id}/${userInfo!!.userId}")
+                                        val fullName = userInfo!!.firstName + userInfo!!.lastName
+                                        chatViewModel.updateCurrentChatName(fullName)
+
+                                        coroutineScope.launch {
+                                            userSearchViewModel.getUserBasedOnUserId(userInfo!!.userId)
+                                        }
                                     }
                                 }
                             }
@@ -266,13 +278,14 @@ fun MessagesScreen(
             }
         }
     )
+
     if (addChannel.value) {
         ModalBottomSheet(
             onDismissRequest = { addChannel.value = false },
             sheetState = sheetState,
         ) {
-            AddChannelDialog(friendsList = listOfFriendsChat) {
-                channelViewModel.addChannelForParticularUser(it)
+            AddChannelDialog(friendsList = friendsWithoutChat.toList()) {
+                channelViewModel.addChannel(it)
                 addChannel.value = false
             }
         }

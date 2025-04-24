@@ -1,5 +1,6 @@
 package com.example.gymbuddy.scaffoldscreens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.rememberAsyncImagePainter
@@ -54,42 +57,56 @@ import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
+import com.example.gymbuddy.friends.FriendRequestInformationDto
+import com.example.gymbuddy.friends.SendingRequestStatus
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun GuestProfileScreen(
-    onSendFriendRequestClick: () -> Unit,
-    onRemoveFriendClick: (UserFoundInformation) -> Unit,
-    onDeclineClick: () -> Unit,
-    onAcceptClick: () -> Unit,
     authState: SignInViewModel.AuthState,
     userSearchViewModel: UserSearchViewModel,
     onSendMessageClick: () -> Unit,
     friendRequestViewModel: FriendRequestViewModel,
     modifier: Modifier = Modifier
 ) {
+    val uid = Firebase.auth.currentUser?.uid ?: return
     val userFoundInformationState by userSearchViewModel.userFoundInformation.collectAsState()
-    val buttonState by friendRequestViewModel.buttonState.collectAsState()
-    var buttonStateExpanded by remember { mutableStateOf(buttonState) }
+    var buttonStateExpanded by remember { mutableStateOf("") }
     var alertDialogState by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        println(buttonState)
-        println(userFoundInformationState)
+    val context = LocalContext.current
+
+
+    DisposableEffect(uid, userFoundInformationState.userId) {
+        friendRequestViewModel.startObservingButton(uid, userFoundInformationState.userId)
+        onDispose { friendRequestViewModel.stopObservingButton() }
     }
 
+    // Teraz możesz bezpiecznie kolekcjonować stan przycisku
+    val buttonState by friendRequestViewModel.buttonState
+        .map { it?.name ?: "" }
+        .collectAsState(initial = FriendRequestRepositoryImpl.FriendButtonState.SendRequest.name)
+
     when (buttonState) {
-        "Send Request" -> {
+        FriendRequestRepositoryImpl.FriendButtonState.SendRequest.toString() -> {
             buttonStateExpanded = "Send Friend Request"
         }
 
-        "Request Sent" -> {
+        FriendRequestRepositoryImpl.FriendButtonState.RequestSent.toString() -> {
             buttonStateExpanded = "Request has been sent"
         }
 
-        "Send Message" -> {
+        FriendRequestRepositoryImpl.FriendButtonState.Remove.toString() -> {
             buttonStateExpanded = "Remove"
+        }
+
+        FriendRequestRepositoryImpl.FriendButtonState.Decline.toString() -> {
+            buttonStateExpanded = "Decline"
         }
     }
 
@@ -172,17 +189,50 @@ fun GuestProfileScreen(
                     ) {
                         Button(
                             onClick = {
+
                                 when (buttonStateExpanded) {
                                     "Remove" -> {
                                         alertDialogState = true
                                     }
 
                                     "Send Friend Request" -> {
-                                        onSendFriendRequestClick()
+                                        friendRequestViewModel.sendFriendRequest(
+                                            friendRequestDto = FriendRequestInformationDto(
+                                                receiverId = userFoundInformationState.userId,
+                                                senderId = Firebase.auth.currentUser?.uid ?: "",
+                                                date = System.currentTimeMillis(),
+                                                status = SendingRequestStatus.PENDING
+                                            ),
+                                            onSuccess = {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Friend request sent",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            },
+                                            onFailure = {
+
+                                            }
+                                        )
                                         buttonStateExpanded = "Request has been sent"
                                     }
 
-                                    "Decline" -> onDeclineClick()
+                                    "Decline" -> {
+                                        friendRequestViewModel.declineFriendRequest(
+                                            currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                                            friendId = userFoundInformationState.userId,
+                                            onSuccess = {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Friend request declined",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            },
+                                            onFailure = {
+                                                println("error while declining friend request")
+                                            }
+                                        )
+                                    }
                                 }
                             },
                             modifier = Modifier
@@ -204,7 +254,18 @@ fun GuestProfileScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = {
-                                    onAcceptClick()
+//                                    onAcceptClick()
+                                    friendRequestViewModel.acceptFriendRequest(
+                                        currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                                        friendId = userFoundInformationState.userId,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "Friends request accepted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -336,7 +397,19 @@ fun GuestProfileScreen(
     AlertDialogDeleteFriend(
         dialogState = alertDialogState,
         changeDialogState = { newValue -> alertDialogState = newValue },
-        onRemoveFriendClick = { onRemoveFriendClick(userFoundInformationState) },
+        onRemoveFriendClick = {
+            friendRequestViewModel.deleteFriend(
+                currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                friendId = userFoundInformationState.userId,
+                onSuccess = {
+                    Toast.makeText(
+                        context,
+                        "Friend Removed",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+        },
         userFoundInformation = userFoundInformationState
     )
 }

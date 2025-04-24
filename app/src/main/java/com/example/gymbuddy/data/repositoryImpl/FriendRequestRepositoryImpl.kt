@@ -1,250 +1,249 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.buttonState.ButtonStateManager
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.friends.FriendRequestInformationDto
+import com.example.gymbuddy.friends.SendingRequestStatus
 import com.example.gymbuddy.repository.FriendRequestRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 class FriendRequestRepositoryImpl : FriendRequestRepository {
 
-    private val auth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
 
-    override suspend fun addFriendRequestToDataBase(
-        friendRequest: FriendRequestInformationDto,
-        onSuccess: () -> Unit,
-        onFailure: () -> Unit
-    ): Result<Boolean> {
+    override suspend fun sendFriendRequest(friendRequest: FriendRequestInformationDto): Result<Boolean> {
         return try {
-            db.collection("users") //kolekcja userow
-                .document(friendRequest.receiverId) // zeby dodac do bazy danych receivera
-                .collection("friendRequests")
-                .document(friendRequest.senderId) // nazwa dokumnetu jest id sendera
+            db.collection("friendships")
+                .document()
                 .set(friendRequest)
                 .await()
-            onSuccess()
             Result.success(true)
         } catch (e: Exception) {
-            onFailure()
             Result.failure(e)
         }
     }
 
-    override suspend fun getAllFullFriendsRequestInformation(listOfFriendRequest: List<FriendRequestInformationDto>): Result<List<UserFoundInformation>> {
-        return try {
-            val listOfUsers = coroutineScope { // asynchronicznie to robimy zeby czasu nie tracic
-                listOfFriendRequest.map { friendRequest ->
-                    async {
-                        val snapshot = db.collection("users")
-                            .document(friendRequest.senderId)
-                            .get()
-                            .await()
-                        snapshot.toObject(UserFoundInformation::class.java)
-                    }
+    enum class FriendButtonState { SendRequest, RequestSent, Decline, Remove }
+
+    override fun observeButtonState(
+        currentUserId: String,
+        searchedUserId: String
+    ): Flow<FriendButtonState> = callbackFlow {
+        val registration = db.collection("friendships")
+            // bierzemy wszystkie dokumenty, gdzie obaj użytkownicy są nadawcą/odbiorcą w dowolnej kolejności
+            .whereIn("senderId", listOf(currentUserId, searchedUserId))
+            .whereIn("receiverId", listOf(currentUserId, searchedUserId))
+            .addSnapshotListener { snap, err ->
+                if (err != null) {
+                    close(err)
+                    return@addSnapshotListener
+                }
+                val docs = snap?.documents.orEmpty()
+
+                // Jeżeli jest dokument ze statusem ACCEPTED → Remove
+                val hasAccepted = docs.any { it.getString("status") == SendingRequestStatus.ACCEPTED.name }
+                // Jeżeli jest dokument PENDING wysłany przez currentUser → RequestSent
+                val hasSent    = docs.any {
+                    it.getString("status") == SendingRequestStatus.PENDING.name &&
+                            it.getString("senderId") == currentUserId
+                }
+                // Jeżeli jest dokument PENDING wysłany przez drugiego usera → Decline
+                val hasRecv    = docs.any {
+                    it.getString("status") == SendingRequestStatus.PENDING.name &&
+                            it.getString("senderId") == searchedUserId
                 }
 
-            }.awaitAll().filterNotNull() // czekamy wszystkie pobierzemy z bazy danych
-            Result.success(listOfUsers)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+                val state = when {
+                    hasAccepted         -> FriendButtonState.Remove
+                    hasSent             -> FriendButtonState.RequestSent
+                    hasRecv             -> FriendButtonState.Decline
+                    else                -> FriendButtonState.SendRequest
+                }
 
-    override suspend fun getAllFriend(currentUserId: String): Result<List<UserFoundInformation>> {
-        return try {
-            // pobieramy liste wszyskich userId zeby potem na ich podstawie pobrac wszystkich userow
-            val listOfFriendsId = mutableListOf<String>()
-            val snapshot = db.collection("users")
-                .document(currentUserId)
-                .collection("friends")
-                .get()
-                .await()
-            snapshot.documents.forEach { document ->
-                listOfFriendsId.add(document.id)
+                trySend(state).isSuccess
             }
-            val listOfUsers = coroutineScope {
-                listOfFriendsId.map { friendId ->
-                    async {
-                        val snapshot1 = db.collection("users")
-                            .document(friendId)
-                            .get()
-                            .await()
-                        snapshot1.toObject(UserFoundInformation::class.java)
+
+        awaitClose { registration.remove() }
+    }
+
+    override fun observeFriends(currentUserId: String): Flow<List<UserFoundInformation>> = callbackFlow {
+
+        fun launchFetchAndSend(ids: Set<String>) {
+            // odpalenie w korutynie callbackFlow
+            launch {
+                val users = if (ids.isEmpty()) {
+                    emptyList()
+                } else {
+                    ids.chunked(10)
+                        .flatMap { chunk ->
+                            db.collection("users")
+                                .whereIn(FieldPath.documentId(), chunk)
+                                .get()
+                                .await()
+                                .toObjects(UserFoundInformation::class.java)
+                        }
+                }
+                trySend(users)
+            }
+        }
+        // zbiór ID znajomych
+        val friendIds = mutableSetOf<String>()
+
+        // listener dla przyjaźni, gdzie currentUser jest senderem
+        val regSent = db.collection("friendships")
+            .whereEqualTo("status", SendingRequestStatus.ACCEPTED.name)
+            .whereEqualTo("senderId", currentUserId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error); return@addSnapshotListener
+                }
+                // dodaj albo usuń sender->receiver ID
+                snapshot?.run {
+                    friendIds.clear()
+                    // najpierw wyczyść i zbierz z obu zapytań na nowo
+                    documents.forEach { doc ->
+                        doc.getString("receiverId")?.let { friendIds.add(it) }
+                    }
+                    // teraz dokleimy jeszcze z drugiego listenera poniżej
+                }
+                // fetchujemy profile
+                launchFetchAndSend(friendIds)
+            }
+
+        // listener dla przyjaźni, gdzie currentUser jest receiverem
+        val regRecv = db.collection("friendships")
+            .whereEqualTo("status", SendingRequestStatus.ACCEPTED.name)
+            .whereEqualTo("receiverId", currentUserId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error); return@addSnapshotListener
+                }
+                snapshot?.run {
+                    friendIds.clear()
+                    documents.forEach { doc ->
+                        doc.getString("senderId")?.let { friendIds.add(it) }
                     }
                 }
-            }.awaitAll().filterNotNull()
-            Result.success(listOfUsers)
-        } catch (e: Exception) {
-            Result.failure(e)
+                launchFetchAndSend(friendIds)
+            }
+
+        awaitClose {
+            regSent.remove()
+            regRecv.remove()
         }
     }
 
     override suspend fun deleteFriend(currentUserId: String, friendId: String): Result<Boolean> {
         return try {
-            coroutineScope {
-                val job1 = async {
-                    db.collection("users")
-                        .document(currentUserId)
-                        .collection("friends")
-                        .document(friendId)
-                        .delete()
-                }
+            val docs = db.collection("friendships")
+                .whereEqualTo("status", SendingRequestStatus.ACCEPTED.name)
+                .whereIn("senderId", listOf(currentUserId, friendId))
+                .whereIn("receiverId", listOf(currentUserId, friendId))
+                .get()
+                .await()
 
-                val job2 = async {
-                    db.collection("users")
-                        .document(friendId)
-                        .collection("friends")
-                        .document(currentUserId)
-                        .delete()
-                }
-                awaitAll(job1, job2)
-            }
+            // usuń wszystkie znalezione dokumenty
+            docs.documents.forEach { it.reference.delete().await() }
+
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun checkFriendShip(friendId: String): Result<Boolean> {
-        return try {
-            val snapshot = db.collection("users")
-                .document(auth.currentUser!!.uid)
-                .collection("friends")
-                .document(friendId)
-                .get()
-                .await()
-            println(snapshot)
-            if (snapshot.exists()) {
-                Result.success(true)
-            } else {
-                Result.success(false)
+    override fun observeIncomingFriendRequests(
+        currentUserId: String
+    ): Flow<List<UserFoundInformation>> = callbackFlow {
+        // Dodajemy listenera do collection "friendships"
+        val registration: ListenerRegistration = db.collection("friendships")
+            .whereEqualTo("status", SendingRequestStatus.PENDING.name)
+            .whereEqualTo("receiverId", currentUserId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)        // zamknij flow przy błędzie
+                    return@addSnapshotListener
+                }
+                // zebrane senderId
+                val senderIds = snapshot
+                    ?.documents
+                    ?.mapNotNull { it.getString("senderId") }
+                    ?.toSet()
+                    .orEmpty()
+
+                // jeśli nie ma zaproszeń, wyślij pustą listę
+                if (senderIds.isEmpty()) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+
+                // batch‐fetch profilów użytkowników (po max 10 na raz)
+                launch {
+                    val chunks = senderIds.chunked(10)
+                    val users = chunks.flatMap { chunk ->
+                        db.collection("users")
+                            .whereIn(FieldPath.documentId(), chunk)
+                            .get()
+                            .await()   // już legalnie wewnątrz korutyny
+                            .toObjects(UserFoundInformation::class.java)
+                    }
+                    trySend(users)
+                }
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+
+        // Kiedy odbiorca Flow przestanie subskrybować, usuwamy listenera:
+        awaitClose { registration.remove() }
     }
 
-    override suspend fun getAllFriendRequests(currentUserId: String): Result<List<FriendRequestInformationDto>> {
+    override suspend fun declineFriendRequest(
+        currentUserId: String,
+        senderId: String
+    ): Result<Boolean> {
         return try {
-            val snapshot =
-                db.collection("users")
-                    .document(currentUserId)
-                    .collection("friendRequests")
+            val querySnapshot =
+                db.collection("friendships")
+                    .whereEqualTo("status", "PENDING")
+                    .whereEqualTo("receiverId", currentUserId)
+                    .whereEqualTo("senderId", senderId)
                     .get()
                     .await()
 
-            val friendRequests = snapshot.documents.mapNotNull { document ->
-                document.toObject(FriendRequestInformationDto::class.java)
+            if (querySnapshot.documents.isEmpty()) {
+                return Result.failure(Exception("Brak zaproszenia o statusie PENDING"))
             }
 
-            Result.success(friendRequests)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+            querySnapshot.documents.first().reference.update("status", "DECLINED").await()
 
-    override suspend fun determineButtonState(searchedUserId: String): Result<String> {
-        return try {
-            val currentUserId = Firebase.auth.currentUser!!.uid
-
-            val sentRequestSnapshot = db.collection("users")
-                .document(searchedUserId)
-                .collection("friendRequests")
-                .document(currentUserId)
-                .get()
-                .await()
-
-            val receivedRequestSnapshot = db.collection("users")
-                .document(currentUserId)
-                .collection("friendRequests")
-                .document(searchedUserId)
-                .get()
-                .await()
-
-            val friendSnapshot = db.collection("users")
-                .document(searchedUserId)
-                .collection("friends")
-                .document(currentUserId)
-                .get()
-                .await()
-
-            val state = when {
-                friendSnapshot.exists() -> "Remove"
-                sentRequestSnapshot.exists() -> "Request Sent"
-                receivedRequestSnapshot.exists() -> "Decline"
-                else -> "Send Request"
-            }
-
-            Result.success(state)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // tutaj to dodaje instancje FriendInformation data class do kolekcji friends, czyli dodajemy do znajomych
-    override suspend fun addFriendsInformationToDatabase(
-        currentUserId: String,
-        friendId: String
-    ): Result<Boolean> {
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        val current = LocalDateTime.now().format(formatter)
-        return try {
-            coroutineScope {
-                val jobCurrentUser = async {
-                    val dataToAddForCurrentUser = mapOf(
-                        "friendId" to friendId,
-                        "dateOfCreationOfFriendShip" to current
-                    )
-                    db.collection("users")
-                        .document(currentUserId)
-                        .collection("friends")
-                        .document(friendId)
-                        .set(dataToAddForCurrentUser)
-                        .await()
-                }
-                val jobFriendUser = async {
-                    val dataToAddForFriendUser = mapOf(
-                        "friendId" to currentUserId,
-                        "dateOfCreationOfFriendShip" to current
-                    )
-                    db.collection("users")
-                        .document(friendId)
-                        .collection("friends")
-                        .document(currentUserId)
-                        .set(dataToAddForFriendUser)
-                        .await()
-                }
-                jobFriendUser.await()
-                jobCurrentUser.await()
-            }
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // Decline
-    override suspend fun deleteFriendRequestAfterAcceptingOrDecliningRequest(
+    override suspend fun acceptFriendRequest(
         currentUserId: String,
-        friendId: String
+        senderId: String
     ): Result<Boolean> {
         return try {
-            db.collection("users")
-                .document(currentUserId)
-                .collection("friendRequests")
-                .document(friendId)
-                .delete()
+            val querySnapshot = db.collection("friendships")
+                .whereEqualTo("status", SendingRequestStatus.PENDING.name)
+                .whereEqualTo("receiverId", currentUserId)
+                .whereEqualTo("senderId", senderId)
+                .get()
                 .await()
+
+            if (querySnapshot.documents.isEmpty()) {
+                return Result.failure(Exception("Brak zaproszenia o statusie PENDING"))
+            }
+
+            querySnapshot.documents.first().reference.update("status", "ACCEPTED").await()
+
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)

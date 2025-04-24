@@ -866,7 +866,7 @@ fun AddWorkoutScreen(
                     }
                 }
 
-                exercise.listOfHits.forEachIndexed { i, hit ->
+                exercise.listOfHits.forEachIndexed { _, hit ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

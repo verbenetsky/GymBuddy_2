@@ -1,6 +1,5 @@
 package com.example.gymbuddy.chat
 
-import java.util.Locale
 
 data class ChatBotMessage(
     val message: String = "",

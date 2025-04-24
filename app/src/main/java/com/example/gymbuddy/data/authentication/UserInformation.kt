@@ -11,7 +11,5 @@ data class UserInformation(
     val dateOfBirth: Long = 0,
     val hobbies: List<String> = emptyList(),
     val goal: String = "",
-    val friends: List<String> = emptyList(),
-    val friendRequests: List<String> = emptyList(),
 )
 

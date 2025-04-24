@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -64,12 +63,7 @@ fun ChatBotScreen(
     chatBotViewModel: ChatBotViewModel = hiltViewModel(),
 ) {
     val messages = chatBotViewModel.messageListChatBot.collectAsState()
-
     val listState = rememberLazyListState()
-
-    LaunchedEffect(Unit) {
-        chatBotViewModel.listenForMessages()
-    }
 
     Box(
         modifier = Modifier
@@ -213,7 +207,6 @@ fun ChatBubble(
     val isCurrentUser = message.role == "user"
     val bubbleColor = if (isCurrentUser) Color(0xFF8A6F4A) else Color(0xFF855400).copy(alpha = 0.8f)
     val screenWidth = LocalConfiguration.current.screenWidthDp
-    val context = LocalContext.current
 
     Box(
         modifier = modifier
@@ -241,7 +234,7 @@ fun ChatBubble(
                     .padding(8.dp)
                     .background(
                         bubbleColor,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp)
                     )
                     .padding(8.dp)
                     .widthIn(max = (screenWidth * 0.7f).dp)
