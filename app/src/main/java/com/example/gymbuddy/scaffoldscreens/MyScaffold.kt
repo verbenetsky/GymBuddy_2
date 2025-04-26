@@ -83,7 +83,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun MyScaffold(
     userManagementViewModel: UserManagementViewModel = hiltViewModel(),
-    chatBotViewModel: ChatBotViewModel = hiltViewModel(),
     signInViewModel: SignInViewModel,
     innerNavController: NavHostController,
     determineName: () -> String,
@@ -146,6 +145,7 @@ fun MyScaffold(
                                 ).show()
                             }
                         )
+                        signInViewModel.markAutoLoginUnTried()
                     },
                     drawerState = drawerState,
                     userInformationState = userInformationState
@@ -261,15 +261,16 @@ fun MyScaffold(
                                 dialogState = deleteDialogState,
                                 changeDialogState = { newValue -> deleteDialogState = newValue },
                                 onDeleteClick = {
-                                    chatBotViewModel.deleteConversation(
-                                        onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Conversation deleted",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    )
+                                    //deleteConversationChatBot()
+//                                    chatBotViewModel.deleteConversation(
+//                                        onSuccess = {
+//                                            Toast.makeText(
+//                                                context,
+//                                                "Conversation deleted",
+//                                                Toast.LENGTH_SHORT
+//                                            ).show()
+//                                        }
+//                                    )
                                 }
                             )
 

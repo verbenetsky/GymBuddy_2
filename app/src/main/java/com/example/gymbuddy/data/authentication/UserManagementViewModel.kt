@@ -36,35 +36,39 @@ class UserManagementViewModel(
 
     // from Firestore to viewModel
     fun fetchUserData(logInOnly: Boolean = true) {
-        println("pobieranie danych z bazy")
-        viewModelScope.launch {
-            val userId = auth.currentUser?.uid
-            if (logInOnly) {
-                if (userId == null) {
-                    println("User is not authenticated")
-                    return@launch
+        if (auth.currentUser?.uid != null) {
+            println("pobieranie danych z bazy")
+            viewModelScope.launch {
+                val userId = auth.currentUser?.uid
+                if (logInOnly) {
+                    if (userId == null) {
+                        println("User is not authenticated")
+                        return@launch
+                    }
+                    val result = userRepository.getUserFromFireStoreToViewModel(userId)
+                    if (result.isSuccess) {
+                        updateUserInformation(result.getOrThrow())
+                    } else {
+                        println("Error getting user data: ${result.exceptionOrNull()?.localizedMessage}")
+                    }
                 }
-                val result = userRepository.getUserFromFireStoreToViewModel(userId)
-                if (result.isSuccess) {
-                    updateUserInformation(result.getOrThrow())
-                } else {
-                    println("Error getting user data: ${result.exceptionOrNull()?.localizedMessage}")
-                }
-            }
 
-            val tokenResult = userRepository.getFcmToken()
-            if (tokenResult.isSuccess) {
-                val token = tokenResult.getOrThrow()
-                updateUserFcmToken(token)
-                val addTokenResult = userRepository.addFcmTokenToDataBase(userId!!, token)
-                if (addTokenResult.isSuccess) {
-                    println("Token added successfully")
+                val tokenResult = userRepository.getFcmToken()
+                if (tokenResult.isSuccess) {
+                    val token = tokenResult.getOrThrow()
+                    updateUserFcmToken(token)
+                    val addTokenResult = userRepository.addFcmTokenToDataBase(userId!!, token)
+                    if (addTokenResult.isSuccess) {
+                        println("Token added successfully")
+                    } else {
+                        println("Error adding token: ${addTokenResult.exceptionOrNull()?.localizedMessage}")
+                    }
                 } else {
-                    println("Error adding token: ${addTokenResult.exceptionOrNull()?.localizedMessage}")
+                    println("Fetching FCM registration token failed: ${tokenResult.exceptionOrNull()?.localizedMessage}")
                 }
-            } else {
-                println("Fetching FCM registration token failed: ${tokenResult.exceptionOrNull()?.localizedMessage}")
             }
+        } else {
+            println("byla proba pobrac dane z firestore ale sie nie udalo")
         }
     }
 

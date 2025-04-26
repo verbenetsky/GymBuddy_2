@@ -89,7 +89,6 @@ class FriendRequestViewModel @Inject constructor(
         friendsJob = friendRequestRepository.observeFriends(currentUserId)
             .onEach { list -> _friendsList.value = list }
             .launchIn(viewModelScope)
-
     }
 
     fun stopListeningFriends() {
@@ -136,6 +135,7 @@ class FriendRequestViewModel @Inject constructor(
 //--------------------------------Sending Notification----------------------------------------------
 
     fun sendDeclineNotification(declineFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto) {
+        println("wysylanie DeclineNotification do usera")
         viewModelScope.launch {
             try {
                 fcmApi.sendDeclineNotification(
@@ -143,22 +143,28 @@ class FriendRequestViewModel @Inject constructor(
                 )
             } catch (e: HttpException) {
                 e.printStackTrace()
+                println(e)
             } catch (e: java.io.IOException) {
                 e.printStackTrace()
+                println(e)
             }
         }
     }
 
     fun sendRemoveNotification(removeDto: AcceptOrDeclineOrRemoveFriendDto) {
         viewModelScope.launch {
+            println("wysylanie RemoveNotification do usera")
             try {
                 fcmApi.sendRemoveNotification(
                     removeDto = removeDto
                 )
             } catch (e: HttpException) {
                 e.printStackTrace()
+                println(e)
             } catch (e: java.io.IOException) {
                 e.printStackTrace()
+                println(e)
+
             }
         }
     }
@@ -166,21 +172,24 @@ class FriendRequestViewModel @Inject constructor(
     fun sendAcceptNotification(acceptFriendRequestDto: AcceptOrDeclineOrRemoveFriendDto) {
         viewModelScope.launch {
             try {
+                println("wysylanie AcceptNotification do usera")
                 fcmApi.sendAcceptNotification(
                     acceptFriendRequestDto = acceptFriendRequestDto
                 )
             } catch (e: HttpException) {
                 e.printStackTrace()
+                println(e)
             } catch (e: java.io.IOException) {
                 e.printStackTrace()
+                println(e)
             }
         }
     }
 
-    fun sendFriendRequestToUser(friendRequestDto: FriendRequestInformationDto) {
+    fun sendFriendRequestToUser(friendRequestDto: FriendRequestDto) {
         viewModelScope.launch {
             try {
-                println("wysylanie powiadomienia do usera")
+                println("wysylanie FriendRequest do usera")
                 fcmApi.sendFriendRequest(friendRequestDto)
             } catch (e: HttpException) {
                 e.printStackTrace()

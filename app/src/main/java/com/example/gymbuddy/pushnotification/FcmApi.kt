@@ -1,7 +1,6 @@
 package com.example.gymbuddy.pushnotification
 
 import com.example.gymbuddy.chat.Message
-import com.example.gymbuddy.friends.FriendRequestInformationDto
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -9,7 +8,7 @@ interface FcmApi {
     //metoda to przeslania danych na serwer
     @POST("/send_request") // endpoint do wysyłania wiadomości jednemu userowi
     suspend fun sendFriendRequest(
-        @Body message: FriendRequestInformationDto
+        @Body message: FriendRequestDto
     )
 
     @POST("/send_chat_notification")
@@ -31,7 +30,6 @@ interface FcmApi {
     suspend fun sendRemoveNotification(
         @Body removeDto: AcceptOrDeclineOrRemoveFriendDto
     )
-
 
 }
 

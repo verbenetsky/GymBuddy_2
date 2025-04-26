@@ -1,3 +1,5 @@
+// ---------------------------------------DEPRECATED------------------------------------------------
+
 //package com.example.gymbuddy.data.authentication
 //
 //import android.content.Context

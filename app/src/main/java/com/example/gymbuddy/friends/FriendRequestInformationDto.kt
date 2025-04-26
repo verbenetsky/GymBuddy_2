@@ -9,11 +9,5 @@ data class FriendRequestInformationDto(
 
 enum class SendingRequestStatus {
     PENDING,
-    DECLINED,
     ACCEPTED
 }
-
-//data class FriendInformation(
-//    val friendId: String = "",
-//    val dateOfCreationOfFriendShip: Long = 0,
-//)

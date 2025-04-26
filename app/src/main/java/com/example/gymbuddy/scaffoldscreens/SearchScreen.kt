@@ -47,10 +47,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
+import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel.UserSearchState
 import com.example.gymbuddy.friends.FriendRequestInformationDto
 import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
+import com.example.gymbuddy.pushnotification.FriendRequestDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
 import com.google.firebase.auth.FirebaseAuth
@@ -64,12 +66,15 @@ fun SearchScreen(
     onGuestProfileClick: () -> Unit,
     onProfileClick: () -> Unit,
     userSearchViewModel: UserSearchViewModel,
+    userManagementViewModel: UserManagementViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val uid = Firebase.auth.currentUser?.uid ?: return
 
-    val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState()
+    val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState() // info about found user
+    val currentUserInformation by userManagementViewModel.userInformationState.collectAsState() // info about found user
+
     var alertDialogState by remember { mutableStateOf(false) }
 
     var searchFieldValue by remember { mutableStateOf("") }
@@ -149,8 +154,7 @@ fun SearchScreen(
                         friendRequestViewModel.sendFriendRequest(
                             friendRequestDto = friendRequestInformationDto,
                             onSuccess = {
-                                friendRequestViewModel.sendFriendRequestToUser(friendRequestInformationDto) // wysylanie powiadomienia
-                                //buttonStateManager.updateState("Request Sent")
+                                friendRequestViewModel.sendFriendRequestToUser(FriendRequestDto(userFoundInformation.fcmToken)) // wysylanie powiadomienia
                                 Toast.makeText(
                                     context,
                                     "Friend request successfully sent",
@@ -173,11 +177,14 @@ fun SearchScreen(
 
                     // mozemy odrzucic request (jesli do nas wyslali zaproszenie)
                     onDeclineClick = {
-                        //buttonStateManager.updateState("Send Request")
+
                         friendRequestViewModel.declineFriendRequest(
                             currentUserId = Firebase.auth.currentUser?.uid ?: "",
                             friendId = userFoundInformation.userId,
                             onSuccess = {
+                                friendRequestViewModel.sendDeclineNotification(
+                                    AcceptOrDeclineOrRemoveFriendDto(currentUserInformation.username, userFoundInformation.fcmToken)
+                                )
                                 Toast.makeText(
                                     context,
                                     "Friend request declined",

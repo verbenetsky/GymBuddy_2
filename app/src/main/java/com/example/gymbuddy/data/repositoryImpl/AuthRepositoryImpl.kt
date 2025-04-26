@@ -1,12 +1,14 @@
 package com.example.gymbuddy.data.repositoryImpl
 
 import com.example.gymbuddy.repository.AuthRepository
+import com.google.firebase.auth.AuthResult
+import com.google.firebase.auth.GoogleAuthCredential
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
-import javax.inject.Inject
 
-class AuthRepositoryImpl: AuthRepository {
+class AuthRepositoryImpl : AuthRepository {
 
     private val auth = Firebase.auth
 
@@ -30,6 +32,17 @@ class AuthRepositoryImpl: AuthRepository {
         val result = auth.createUserWithEmailAndPassword(email, password).await()
         result.user?.uid ?: throw Exception("User ID is null")
         return true
+    }
+
+    override suspend fun signInWithCredentials(token: String): Boolean {
+        val credentials = GoogleAuthProvider.getCredential(token, null)
+        val result = auth.signInWithCredential(credentials).await()
+
+        val isNew = result.additionalUserInfo?.isNewUser ?: false
+
+        result.user ?: throw IllegalStateException("Firebase zwrócił pustego użytkownika")
+
+        return isNew
     }
 
     override suspend fun deleteUserAccount(): Result<Boolean> {

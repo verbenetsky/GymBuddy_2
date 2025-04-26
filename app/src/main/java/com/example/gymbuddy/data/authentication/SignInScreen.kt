@@ -1,31 +1,21 @@
 package com.example.gymbuddy.data.authentication
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
@@ -33,53 +23,233 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.gymbuddy.R
-import com.example.gymbuddy.ui.theme.Poppins
 import com.example.gymbuddy.utils.CommonUtils
-import com.example.gymbuddy.utils.CommonUtils.borderColor
-import com.example.gymbuddy.utils.CommonUtils.textGoogleButtonColor
-import com.example.gymbuddy.utils.rememberImeState
-
+import kotlinx.coroutines.launch
 
 @Composable
 fun SignInScreen(
     signInViewModel: SignInViewModel,
+    userManagementViewModel: UserManagementViewModel,
     onContinueSignInScreenClick: () -> Unit,
-    onSignInGoogleButtonClick: () -> Unit,
+    navigateToRegistration: () -> Unit,
+    navigateToMyApp: () -> Unit,
     clearUserInformation: () -> Unit,
     onSignUpClick: () -> Unit,
 ) {
-
+    val scope = rememberCoroutineScope()
     val userData by signInViewModel.userData.collectAsState()
     val validation by signInViewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val context = LocalContext.current
+    val activity = context as Activity
+    val accountManager = remember { CredentialManager(activity) }
+
+    var triedAuto by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         keyboardController?.hide()
         signInViewModel.resetPassword()
         clearUserInformation()
     }
+
+    LaunchedEffect(Unit) {
+        if (!triedAuto) {
+            triedAuto = true
+            when (val res = accountManager.signIn()) {
+                is SignInResultCred.Password -> signInViewModel.logIn(res.email, res.password, {
+                    userManagementViewModel.fetchUserData()
+                    navigateToMyApp()
+                    Toast.makeText(
+                        context,
+                        "Log in Successfully",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }, onError = {
+
+                })
+
+                is SignInResultCred.Google   -> {
+
+                }
+                SignInResultCred.NoCredentials -> {
+                    Toast.makeText(context, "Brak zapisanych danych", Toast.LENGTH_SHORT).show()
+                }
+                SignInResultCred.Cancelled -> {
+//                Toast.makeText(context, "Anulowano", Toast.LENGTH_SHORT).show()
+                }
+                SignInResultCred.Failure -> {
+                    Toast.makeText(context, "Błąd odczytu danych", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+//    val lifecycleOwner = LocalLifecycleOwner.current
+//
+//    DisposableEffect(lifecycleOwner) {
+//        println("zachodizmy w disposable")
+//        val observer = LifecycleEventObserver { _, event ->
+//            if (event == Lifecycle.Event.ON_START && !triedAuto.value) {
+//                triedAuto.value = true
+//                scope.launch {
+//                    when (val res =
+//                        accountManager.silentSignIn("359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com")) {
+//                        is SignInResultCred.Password -> {
+//                            signInViewModel.logIn(
+//                                res.email,
+//                                res.password,
+//                                onSuccess = {
+//                                    navigateToMyApp()
+//                                    userManagementViewModel.fetchUserData()
+//                                },
+//                                onError = {
+//                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+//                                }
+//                            )
+//                        }
+//
+//                        is SignInResultCred.Google -> {
+//                            signInViewModel.authenticateWithGoogle(
+//                                res.idToken,
+//                                onSuccess = { isNew ->
+//                                    if (isNew) {
+//                                        println("navigate to registratino")
+//                                        navigateToRegistration()
+//                                        // signInViewModel.setUserData() jak tutaj mam dostac sie do email i user id konta google ? bo musze to ustawic
+//                                        signInViewModel.setAuthState(SignInViewModel.AuthState.AuthenticatedButNotRegister)
+//                                    }
+//                                    else {
+//                                        navigateToMyApp()
+//                                        signInViewModel.setAuthState(SignInViewModel.AuthState.GoogleAuthenticated)
+//                                    }
+//                                },
+//                                onError = {
+//                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+//                                }
+//                            )
+//                        }
+//                        SignInResultCred.Cancelled -> {
+//                            Toast
+//                                .makeText(
+//                                    context,
+//                                    "Back",
+//                                    Toast.LENGTH_SHORT
+//                                )
+//                                .show()
+//
+//                        }
+//                        SignInResultCred.Failure -> {
+//                            Toast
+//                                .makeText(
+//                                    context,
+//                                    "Failure",
+//                                    Toast.LENGTH_SHORT
+//                                )
+//                                .show()
+//                        }
+//                        SignInResultCred.NoCredentials -> {
+//                            Toast
+//                                .makeText(
+//                                    context,
+//                                    "No credentials",
+//                                    Toast.LENGTH_SHORT
+//                                )
+//                                .show()
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        lifecycleOwner.lifecycle.addObserver(observer)
+//        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+//    }
+
+//    LaunchedEffect(Unit) {
+//        if (!signInViewModel.hasTriedAutoLogin) {
+//
+//            signInViewModel.markAutoLoginTried() // ustawiamy na true
+//
+//            scope.launch {
+//                when (val res =
+//                    accountManager.signInOrSignUp("359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com")) {
+////                    is SignInResultCred.Success -> {
+////                        signInViewModel.logIn(res.email, res.password, onSuccess = {
+////                            navigateToMyApp()
+////                            userManagementViewModel.fetchUserData()
+////                            Toast.makeText(
+////                                context,
+////                                "Log in Successfully",
+////                                Toast.LENGTH_SHORT
+////                            ).show()
+////                        },onError = {})
+////                        navigateToMyApp()
+////                    }
+//
+//                    is SignInResultCred.Cancelled -> {
+//                        pickerCancelled = true
+//                    }
+//
+//                    is SignInResultCred.NoCredentials -> {
+//                        Toast.makeText(
+//                            context,
+//                            "There are no saved accounts",
+//                            Toast.LENGTH_SHORT
+//                        ).show()
+//                    }
+//
+//                    is SignInResultCred.Failure -> {
+//                        Toast.makeText(
+//                            context,
+//                            "Nie udało się pobrać poświadczeń",
+//                            Toast.LENGTH_SHORT
+//                        )
+//                            .show()
+//                    }
+//
+//                    is SignInResultCred.Google -> {
+//
+//                    }
+//
+//                    is SignInResultCred.Password -> {
+//                        signInViewModel.logIn(res.email, res.password, onSuccess = {
+//                            navigateToMyApp()
+//                            userManagementViewModel.fetchUserData()
+//                            Toast.makeText(
+//                                context,
+//                                "Log in Successfully",
+//                                Toast.LENGTH_SHORT
+//                            ).show()
+//                        }, onError = {})
+//                        navigateToMyApp()
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     Column(
         modifier = Modifier
@@ -126,10 +296,13 @@ fun SignInScreen(
             )
         }
 
+
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
-            onClick = { onContinueSignInScreenClick() },
+            onClick = {
+                onContinueSignInScreenClick()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 48.dp),
@@ -142,7 +315,44 @@ fun SignInScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+//        if (pickerCancelled) {
+//            Button(
+//                onClick = {
+//                    pickerCancelled = false
+//                    scope.launch {
+//                        println("open drawer")
+//
+////                        val retry = accountManager.signIn()
+////                        if (retry is SignInResultCred.Success) {
+////                            signInViewModel.logIn(retry.email, retry.password, onSuccess = {
+////                                navigateToMyApp()
+////                                userManagementViewModel.fetchUserData()
+////                                Toast.makeText(
+////                                    context,
+////                                    "Log in Successfully",
+////                                    Toast.LENGTH_SHORT
+////                                ).show()
+////                            }, onError = {
+////
+////                            })
+////                        } else if (retry is SignInResultCred.Cancelled) {
+////                            pickerCancelled = true
+////                        }
+//                    }
+//                },
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(horizontal = 48.dp),
+//                shape = RoundedCornerShape(4.dp),
+//            ) {
+//                Text(
+//                    text = "Open Password Manager",
+//                    style = MaterialTheme.typography.displayMedium
+//                )
+//            }
+//        }
 
         Text(
             text = stringResource(R.string.dont_have_an_account),
@@ -153,48 +363,84 @@ fun SignInScreen(
         Spacer(modifier = Modifier.height(100.dp))
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 30.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(24.dp)
-                .border(1.5.dp, borderColor(), shape = RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = { onSignInGoogleButtonClick() }
-                )
-                .background(Color.Transparent)
-                .padding(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    modifier = Modifier.size(25.dp),
-                    painter = painterResource(id = R.drawable.google_signin_icon),
-                    contentDescription = null,
-                    tint = Color.Unspecified
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = stringResource(id = R.string.sign_in_with_google),
-                    style = TextStyle(
-                        fontFamily = Poppins,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    ),
-                    textAlign = TextAlign.Center,
-                    color = textGoogleButtonColor()
-                )
-            }
-        }
-    }
+
+    //--------------------------------------DEPRECATED----------------------------------------------
+//    Box(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .padding(bottom = 30.dp),
+//        contentAlignment = Alignment.BottomCenter
+//    ) {
+//        Box(
+//            modifier = Modifier
+//                .padding(24.dp)
+//                .border(1.5.dp, borderColor(), shape = RoundedCornerShape(18.dp))
+//                .clip(RoundedCornerShape(18.dp))
+//                .clickable(
+//                    interactionSource = remember { MutableInteractionSource() },
+//                    indication = ripple(),
+//                    onClick = {
+//                        scope.launch {
+//                            when (val res = accountManager.silentSignIn(
+//                                "359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com",
+//                                interactive = true           // pełny picker
+//                            )) {
+//                                is SignInResultCred.Google -> {
+//                                    signInViewModel.logInWithGoogle(
+//                                        res.idToken,
+//                                        onSuccess = {
+//                                            navigateToMyApp()
+//                                        },
+//                                        onError = { msg ->
+//                                            Toast
+//                                                .makeText(
+//                                                    context,
+//                                                    msg,
+//                                                    Toast.LENGTH_SHORT
+//                                                )
+//                                                .show()
+//                                        }
+//                                    )
+//                                }
+//
+//                                SignInResultCred.Cancelled -> Unit     // użytkownik kliknął „Wstecz”
+//                                else -> Toast
+//                                    .makeText(
+//                                        context,
+//                                        "Nie udało się pobrać konta Google",
+//                                        Toast.LENGTH_SHORT
+//                                    )
+//                                    .show()
+//                            }
+//                        }
+//                    }
+//                )
+//                .background(Color.Transparent)
+//                .padding(10.dp)
+//        ) {
+//            Row(
+//                modifier = Modifier.fillMaxWidth(),
+//                horizontalArrangement = Arrangement.Center,
+//                verticalAlignment = Alignment.CenterVertically
+//            ) {
+//                Icon(
+//                    modifier = Modifier.size(25.dp),
+//                    painter = painterResource(id = R.drawable.google_signin_icon),
+//                    contentDescription = null,
+//                    tint = Color.Unspecified
+//                )
+//                Spacer(modifier = Modifier.width(12.dp))
+//                Text(
+//                    text = stringResource(id = R.string.sign_in_with_google),
+//                    style = TextStyle(
+//                        fontFamily = Poppins,
+//                        fontWeight = FontWeight.SemiBold,
+//                        fontSize = 14.sp
+//                    ),
+//                    textAlign = TextAlign.Center,
+//                    color = textGoogleButtonColor()
+//                )
+//            }
+//        }
+//    }
 }

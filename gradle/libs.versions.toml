@@ -6,6 +6,7 @@ coilCompose = "3.0.4"
 converterMoshiVersion = "2.5.0"
 credentials = "1.5.0"
 generativeai = "0.9.0"
+googleid = "1.1.1"
 hiltAndroid = "2.51.1"
 hiltAndroidCompiler = "2.51.1"
 hiltNavigationCompose = "1.2.0"
@@ -32,7 +33,11 @@ retrofitVersion = "2.9.0"
 hilt_dagger = "2.51.1"
 
 
+
+
 [libraries]
+
+
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
 
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,6 +53,7 @@ firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 firebase-storage = { module = "com.google.firebase:firebase-storage" }
 generativeai = { module = "com.google.ai.client.generativeai:generativeai", version.ref = "generativeai" }
 google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompiler" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -64,6 +70,7 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 
+
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "bom_firebase" }
 
 # Firebase Authentication
@@ -76,12 +83,12 @@ firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
 material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
-play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "play_services_auth" }
 
 # Google Services Plugin
 google-services = { module = "com.google.gms:google-services", version.ref = "gms_services" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -87,6 +87,7 @@ fun RegistrationNewUserScreen(
     val selectedSports = remember { mutableStateListOf<String>() }
     val listSize = selectedSports.size
 
+
     LaunchedEffect(userInformationState) {
         println(userInformationState)
     }
@@ -100,6 +101,7 @@ fun RegistrationNewUserScreen(
 
     LaunchedEffect(Unit) {
         userManagementViewModel.transportUserInformation(userDate) // dodajemy do UserInfo
+        println(authState)
     }
 
     if (authState == SignInViewModel.AuthState.Loading) {
@@ -112,7 +114,6 @@ fun RegistrationNewUserScreen(
             CircularProgressIndicator()
         }
     } else {
-
         Column(
             modifier = modifier
                 .fillMaxSize()

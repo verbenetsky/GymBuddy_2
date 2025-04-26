@@ -1,25 +1,25 @@
 package com.example.gymbuddy.data.authentication
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.repositoryImpl.AuthRepositoryImpl
 import com.example.gymbuddy.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
-import javax.inject.Inject
 
-class SignInViewModel (
-    private val authRepository: AuthRepository = AuthRepositoryImpl()
+class SignInViewModel(
+    private val authRepository: AuthRepository = AuthRepositoryImpl(),
 ) : ViewModel() {
 
     private val auth = Firebase.auth
@@ -35,6 +35,17 @@ class SignInViewModel (
 
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
+
+    var hasTriedAutoLogin by mutableStateOf(false)
+        private set
+
+    fun markAutoLoginTried() {
+        hasTriedAutoLogin = true
+    }
+
+    fun markAutoLoginUnTried() {
+        hasTriedAutoLogin = false
+    }
 
     init {
         checkAuthStatus()
@@ -67,6 +78,27 @@ class SignInViewModel (
                 onError(e.localizedMessage ?: "Unknown error")
             } finally {
                 resetPassword()
+            }
+        }
+    }
+
+    fun tryLogInCredentials(accountManager: CredentialManager) {
+
+    }
+
+    // metoda do logowania i rejestracji za pomoca google konta
+    // jesli nie ma przypisanego konta do konta google to utworzy
+    // a jesli jest to zaloguje sie na istniejacy
+    fun authenticateWithGoogle(token: String, onSuccess: (Boolean) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            try {
+                val isNew = authRepository.signInWithCredentials(token)
+                onSuccess(isNew)
+            } catch (e: Exception) {
+                println(e)
+                onError(e.localizedMessage ?: "")
+                _authState.value = AuthState.Unauthenticated
             }
         }
     }

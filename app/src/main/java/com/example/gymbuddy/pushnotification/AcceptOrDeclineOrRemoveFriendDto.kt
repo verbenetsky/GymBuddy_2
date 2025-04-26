@@ -5,6 +5,10 @@ data class AcceptOrDeclineOrRemoveFriendDto(
     val receiverFcmToken: String
 )
 
+data class FriendRequestDto(
+    val receiverFcmToken: String
+)
+
 
 
 

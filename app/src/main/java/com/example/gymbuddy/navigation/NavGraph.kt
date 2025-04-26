@@ -67,10 +67,18 @@ fun NavGraph(
 
             SignInScreen(
                 signInViewModel = signInViewModel,
-                onSignInGoogleButtonClick = {  }, // todo
                 onSignUpClick = { navController.navigate("sign_up") },
                 onContinueSignInScreenClick = { navController.navigate("sign_in_2") },
-                clearUserInformation = { userManagementViewModel.clearForm() }
+                clearUserInformation = { userManagementViewModel.clearForm() },
+                navigateToMyApp = { navController.navigate("my_app") },
+                navigateToRegistration = {
+                    navController.navigate("registration") {
+                        popUpTo("signIn") {
+                            inclusive = true
+                        }
+                    }
+                },
+                userManagementViewModel = userManagementViewModel
             )
         }
 
@@ -145,6 +153,7 @@ fun NavGraph(
                             onProfileClick = { innerNavController.navigate("profile_screen") },
                             onGuestProfileClick = { innerNavController.navigate("guess_profile_screen") },
                             userSearchViewModel = userSearchViewModel,
+                            userManagementViewModel = userManagementViewModel
                         )
                     }
 
@@ -154,6 +163,7 @@ fun NavGraph(
                             userSearchViewModel = userSearchViewModel,
                             friendRequestViewModel = friendRequestViewModel,
                             onSendMessageClick = { }, //todo
+                            userManagementViewModel = userManagementViewModel
                         )
                     }
 

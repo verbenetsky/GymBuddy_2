@@ -76,12 +76,16 @@ dependencies {
     // Ponowne dodanie Firestore (dla synchronizacji wersji przez BoM)
     implementation(libs.firebase.firestore)
     // Google Services – integracja z usługami Google
-    implementation(libs.google.services)
     // Play Services Auth – wsparcie dla autoryzacji przez Google Play Services
-    implementation(libs.play.services.auth)
 
     // Accompanist System UI Controller – pomocnicza biblioteka do zarządzania wyglądem systemowego UI (np. status bar)
     implementation(libs.accompanist.systemuicontroller)
+
+
+    implementation(libs.googleid)
+
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
 
     // AndroidX Compose – zestaw bibliotek Compose:
     // Użycie Compose BoM dla zarządzania wersjami
