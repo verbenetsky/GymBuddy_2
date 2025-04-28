@@ -87,7 +87,6 @@ fun RegistrationNewUserScreen(
     val selectedSports = remember { mutableStateListOf<String>() }
     val listSize = selectedSports.size
 
-
     LaunchedEffect(userInformationState) {
         println(userInformationState)
     }

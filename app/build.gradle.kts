@@ -9,6 +9,13 @@ plugins {
 
 android {
 
+    packaging {
+        resources {
+            pickFirsts += "mozilla/public-suffix-list.txt"
+            excludes += "META-INF/DEPENDENCIES"
+        }
+    }
+
     namespace = "com.example.gymbuddy"
     compileSdk = 35
 
@@ -84,6 +91,11 @@ dependencies {
 
     implementation(libs.googleid)
 
+    implementation(libs.google.api.client)
+
+    implementation(libs.google.http.client.gson)
+
+
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
 
@@ -118,6 +130,7 @@ dependencies {
 
     // AndroidX Espresso Core – biblioteka do testowania UI (instrumentalne testy)
     implementation(libs.androidx.espresso.core)
+    implementation(libs.firebase.crashlytics.buildtools)
 
     // Testowanie:
     // JUnit – biblioteka do testów jednostkowych

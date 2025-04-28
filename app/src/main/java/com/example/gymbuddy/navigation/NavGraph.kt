@@ -73,7 +73,7 @@ fun NavGraph(
                 navigateToMyApp = { navController.navigate("my_app") },
                 navigateToRegistration = {
                     navController.navigate("registration") {
-                        popUpTo("signIn") {
+                        popUpTo("sign_in") {
                             inclusive = true
                         }
                     }

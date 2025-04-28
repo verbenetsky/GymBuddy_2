@@ -186,9 +186,9 @@ fun SignUpScreen(
                         password,
                         onSuccess = {
                             scope.launch {
-                                accountManager.signUp(
-                                    userData.email, password,
-                                    onSuccess = {
+                                val res = accountManager.signUp(userData.email, password)
+                                when (res) {
+                                    is SignUpResult.Success -> {
                                         navigateToRegistration()
                                         signInViewModel.setUserData(
                                             userData.email,
@@ -200,7 +200,15 @@ fun SignUpScreen(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
-                                )
+
+                                    SignUpResult.Cancelled -> {
+                                        Toast.makeText(context, "Saving credentials canceled", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                    SignUpResult.Failure -> {
+                                        Toast.makeText(context, "Cannot save a login", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
                         },
                         onError = { msg ->

@@ -34,7 +34,7 @@ class AuthRepositoryImpl : AuthRepository {
         return true
     }
 
-    override suspend fun signInWithCredentials(token: String): Boolean {
+    override suspend fun signInWithCredentials(token: String): Pair<Boolean, String?> {
         val credentials = GoogleAuthProvider.getCredential(token, null)
         val result = auth.signInWithCredential(credentials).await()
 
@@ -42,7 +42,7 @@ class AuthRepositoryImpl : AuthRepository {
 
         result.user ?: throw IllegalStateException("Firebase zwrócił pustego użytkownika")
 
-        return isNew
+        return Pair(isNew,result.user?.uid)
     }
 
     override suspend fun deleteUserAccount(): Result<Boolean> {

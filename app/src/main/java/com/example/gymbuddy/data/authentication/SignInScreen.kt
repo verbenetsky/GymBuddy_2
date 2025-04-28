@@ -79,177 +79,58 @@ fun SignInScreen(
     LaunchedEffect(Unit) {
         if (!triedAuto) {
             triedAuto = true
-            when (val res = accountManager.signIn()) {
-                is SignInResultCred.Password -> signInViewModel.logIn(res.email, res.password, {
-                    userManagementViewModel.fetchUserData()
-                    navigateToMyApp()
-                    Toast.makeText(
-                        context,
-                        "Log in Successfully",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }, onError = {
+            val res = accountManager.signIn()
+            when (res) {
+                is SignInResultCred.Password -> {
+                    signInViewModel.logIn(res.email, res.password, onSuccess = {
+                        userManagementViewModel.fetchUserData()
+                        navigateToMyApp()
+                        Toast.makeText(
+                            context,
+                            "Log in Successfully",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }, onError = {
 
-                })
-
-                is SignInResultCred.Google   -> {
-
+                    })
                 }
+
+                is SignInResultCred.Google -> {
+                    signInViewModel.authenticateWithGoogle(res.idToken, onSuccess = { isNew, uid ->
+                        if (isNew) {
+                            println("new user")
+                            navigateToRegistration()
+                            signInViewModel.setUserData(res.email, uid)
+                        } else {
+                            println("old user")
+                            userManagementViewModel.fetchUserData()
+                            navigateToMyApp()
+                            Toast.makeText(
+                                context,
+                                "Log in Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                    }, onError = {
+
+                    })
+                }
+
                 SignInResultCred.NoCredentials -> {
                     Toast.makeText(context, "Brak zapisanych danych", Toast.LENGTH_SHORT).show()
                 }
+
                 SignInResultCred.Cancelled -> {
 //                Toast.makeText(context, "Anulowano", Toast.LENGTH_SHORT).show()
                 }
+
                 SignInResultCred.Failure -> {
                     Toast.makeText(context, "Błąd odczytu danych", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
-
-//    val lifecycleOwner = LocalLifecycleOwner.current
-//
-//    DisposableEffect(lifecycleOwner) {
-//        println("zachodizmy w disposable")
-//        val observer = LifecycleEventObserver { _, event ->
-//            if (event == Lifecycle.Event.ON_START && !triedAuto.value) {
-//                triedAuto.value = true
-//                scope.launch {
-//                    when (val res =
-//                        accountManager.silentSignIn("359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com")) {
-//                        is SignInResultCred.Password -> {
-//                            signInViewModel.logIn(
-//                                res.email,
-//                                res.password,
-//                                onSuccess = {
-//                                    navigateToMyApp()
-//                                    userManagementViewModel.fetchUserData()
-//                                },
-//                                onError = {
-//                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-//                                }
-//                            )
-//                        }
-//
-//                        is SignInResultCred.Google -> {
-//                            signInViewModel.authenticateWithGoogle(
-//                                res.idToken,
-//                                onSuccess = { isNew ->
-//                                    if (isNew) {
-//                                        println("navigate to registratino")
-//                                        navigateToRegistration()
-//                                        // signInViewModel.setUserData() jak tutaj mam dostac sie do email i user id konta google ? bo musze to ustawic
-//                                        signInViewModel.setAuthState(SignInViewModel.AuthState.AuthenticatedButNotRegister)
-//                                    }
-//                                    else {
-//                                        navigateToMyApp()
-//                                        signInViewModel.setAuthState(SignInViewModel.AuthState.GoogleAuthenticated)
-//                                    }
-//                                },
-//                                onError = {
-//                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-//                                }
-//                            )
-//                        }
-//                        SignInResultCred.Cancelled -> {
-//                            Toast
-//                                .makeText(
-//                                    context,
-//                                    "Back",
-//                                    Toast.LENGTH_SHORT
-//                                )
-//                                .show()
-//
-//                        }
-//                        SignInResultCred.Failure -> {
-//                            Toast
-//                                .makeText(
-//                                    context,
-//                                    "Failure",
-//                                    Toast.LENGTH_SHORT
-//                                )
-//                                .show()
-//                        }
-//                        SignInResultCred.NoCredentials -> {
-//                            Toast
-//                                .makeText(
-//                                    context,
-//                                    "No credentials",
-//                                    Toast.LENGTH_SHORT
-//                                )
-//                                .show()
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        lifecycleOwner.lifecycle.addObserver(observer)
-//        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-//    }
-
-//    LaunchedEffect(Unit) {
-//        if (!signInViewModel.hasTriedAutoLogin) {
-//
-//            signInViewModel.markAutoLoginTried() // ustawiamy na true
-//
-//            scope.launch {
-//                when (val res =
-//                    accountManager.signInOrSignUp("359448700030-e6qcjkoqntc9vnics2vhse2u3nd3dtaa.apps.googleusercontent.com")) {
-////                    is SignInResultCred.Success -> {
-////                        signInViewModel.logIn(res.email, res.password, onSuccess = {
-////                            navigateToMyApp()
-////                            userManagementViewModel.fetchUserData()
-////                            Toast.makeText(
-////                                context,
-////                                "Log in Successfully",
-////                                Toast.LENGTH_SHORT
-////                            ).show()
-////                        },onError = {})
-////                        navigateToMyApp()
-////                    }
-//
-//                    is SignInResultCred.Cancelled -> {
-//                        pickerCancelled = true
-//                    }
-//
-//                    is SignInResultCred.NoCredentials -> {
-//                        Toast.makeText(
-//                            context,
-//                            "There are no saved accounts",
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//                    }
-//
-//                    is SignInResultCred.Failure -> {
-//                        Toast.makeText(
-//                            context,
-//                            "Nie udało się pobrać poświadczeń",
-//                            Toast.LENGTH_SHORT
-//                        )
-//                            .show()
-//                    }
-//
-//                    is SignInResultCred.Google -> {
-//
-//                    }
-//
-//                    is SignInResultCred.Password -> {
-//                        signInViewModel.logIn(res.email, res.password, onSuccess = {
-//                            navigateToMyApp()
-//                            userManagementViewModel.fetchUserData()
-//                            Toast.makeText(
-//                                context,
-//                                "Log in Successfully",
-//                                Toast.LENGTH_SHORT
-//                            ).show()
-//                        }, onError = {})
-//                        navigateToMyApp()
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     Column(
         modifier = Modifier
@@ -296,7 +177,6 @@ fun SignInScreen(
             )
         }
 
-
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
@@ -316,43 +196,6 @@ fun SignInScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
-//        if (pickerCancelled) {
-//            Button(
-//                onClick = {
-//                    pickerCancelled = false
-//                    scope.launch {
-//                        println("open drawer")
-//
-////                        val retry = accountManager.signIn()
-////                        if (retry is SignInResultCred.Success) {
-////                            signInViewModel.logIn(retry.email, retry.password, onSuccess = {
-////                                navigateToMyApp()
-////                                userManagementViewModel.fetchUserData()
-////                                Toast.makeText(
-////                                    context,
-////                                    "Log in Successfully",
-////                                    Toast.LENGTH_SHORT
-////                                ).show()
-////                            }, onError = {
-////
-////                            })
-////                        } else if (retry is SignInResultCred.Cancelled) {
-////                            pickerCancelled = true
-////                        }
-//                    }
-//                },
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(horizontal = 48.dp),
-//                shape = RoundedCornerShape(4.dp),
-//            ) {
-//                Text(
-//                    text = "Open Password Manager",
-//                    style = MaterialTheme.typography.displayMedium
-//                )
-//            }
-//        }
 
         Text(
             text = stringResource(R.string.dont_have_an_account),

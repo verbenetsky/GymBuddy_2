@@ -6,6 +6,8 @@ coilCompose = "3.0.4"
 converterMoshiVersion = "2.5.0"
 credentials = "1.5.0"
 generativeai = "0.9.0"
+googleApiClient = "2.2.0"
+googleHttpClientGson = "1.43.1"
 googleid = "1.1.1"
 hiltAndroid = "2.51.1"
 hiltAndroidCompiler = "2.51.1"
@@ -31,6 +33,7 @@ navigationCompose = "2.8.9"
 retrofitVersion = "2.9.0"
 
 hilt_dagger = "2.51.1"
+firebaseCrashlyticsBuildtools = "3.0.3"
 
 
 
@@ -52,7 +55,9 @@ converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.r
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 firebase-storage = { module = "com.google.firebase:firebase-storage" }
 generativeai = { module = "com.google.ai.client.generativeai:generativeai", version.ref = "generativeai" }
+google-api-client = { module = "com.google.api-client:google-api-client", version.ref = "googleApiClient" }
 google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+google-http-client-gson = { module = "com.google.http-client:google-http-client-gson", version.ref = "googleHttpClientGson" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompiler" }
@@ -88,6 +93,7 @@ moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 google-services = { module = "com.google.gms:google-services", version.ref = "gms_services" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
+firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 
 
 [plugins]

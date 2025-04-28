@@ -82,19 +82,20 @@ class SignInViewModel(
         }
     }
 
-    fun tryLogInCredentials(accountManager: CredentialManager) {
-
-    }
 
     // metoda do logowania i rejestracji za pomoca google konta
     // jesli nie ma przypisanego konta do konta google to utworzy
     // a jesli jest to zaloguje sie na istniejacy
-    fun authenticateWithGoogle(token: String, onSuccess: (Boolean) -> Unit, onError: (String) -> Unit) {
+
+    fun authenticateWithGoogle(token: String, onSuccess: (Boolean, String) -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                val isNew = authRepository.signInWithCredentials(token)
-                onSuccess(isNew)
+                val (isNew, firebaseUid) = authRepository.signInWithCredentials(token)
+                if (firebaseUid != null) {
+                    onSuccess(isNew,firebaseUid)
+                }
+                _authState.value = AuthState.AuthenticatedButNotRegister
             } catch (e: Exception) {
                 println(e)
                 onError(e.localizedMessage ?: "")
