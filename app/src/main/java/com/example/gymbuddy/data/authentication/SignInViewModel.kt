@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ import java.util.regex.Pattern
 
 class SignInViewModel(
     private val authRepository: AuthRepository = AuthRepositoryImpl(),
+    private val accountManager: CredentialManager
 ) : ViewModel() {
 
     private val auth = Firebase.auth
@@ -87,13 +89,17 @@ class SignInViewModel(
     // jesli nie ma przypisanego konta do konta google to utworzy
     // a jesli jest to zaloguje sie na istniejacy
 
-    fun authenticateWithGoogle(token: String, onSuccess: (Boolean, String) -> Unit, onError: (String) -> Unit) {
+    fun authenticateWithGoogle(
+        token: String,
+        onSuccess: (Boolean, String) -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
                 val (isNew, firebaseUid) = authRepository.signInWithCredentials(token)
                 if (firebaseUid != null) {
-                    onSuccess(isNew,firebaseUid)
+                    onSuccess(isNew, firebaseUid)
                 }
                 _authState.value = AuthState.AuthenticatedButNotRegister
             } catch (e: Exception) {
@@ -132,14 +138,32 @@ class SignInViewModel(
         email: String,
         password: String,
         onSuccess: () -> Unit,
+        onCanceled: () -> Unit,
+        onFailure: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
+            _authState.value = AuthState.Loading
             try {
-                _authState.value = AuthState.Loading
                 authRepository.signUp(email, password)
-                onSuccess()
-                resetPassword()
+
+                when (val res = accountManager.signUp(email, password)) {
+                    is SignUpResult.Success -> {
+                        _authState.value = AuthState.AuthenticatedButNotRegister
+                        onSuccess()
+                    }
+
+                    is SignUpResult.Cancelled -> {
+                        _authState.value = AuthState.Unauthenticated
+                        onCanceled()
+                    }
+
+                    is SignUpResult.Failure -> {
+                        _authState.value = AuthState.Unauthenticated
+                        onFailure()
+                    }
+                }
+
                 _authState.value = AuthState.AuthenticatedButNotRegister
             } catch (e: FirebaseAuthUserCollisionException) {
                 _authState.value = AuthState.Unauthenticated
@@ -150,8 +174,6 @@ class SignInViewModel(
                 _authState.value = AuthState.Unauthenticated
                 onError(errorMessage)
                 println(errorMessage)
-            } finally {
-                resetPassword()
             }
         }
     }

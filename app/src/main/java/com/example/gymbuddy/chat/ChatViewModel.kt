@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.repositoryImpl.ChatRepositoryImpl
 import com.example.gymbuddy.pushnotification.FcmApi
+import com.google.firebase.auth.auth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,6 +126,28 @@ class ChatViewModel @Inject constructor(
                 println("Błąd podczas wysylania wiadomosci: ${error?.message}")
             }
         }
+    }
+
+    suspend fun deleteAllMessagesRelatedToUser() {
+            val uid = Firebase.auth.currentUser?.uid.orEmpty()
+            val res = chatRepository.getAllChannelsIdFromUser(uid)
+            println("all channels id to delete: ${res.getOrNull()}")
+            chatRepository
+                .getAllChannelsIdFromUser(uid)
+                .onSuccess { listOfIds ->
+                    chatRepository
+                        .deleteAllMessagesRelatedToUser(listOfIds)
+                        .onSuccess {
+                            println(" All messages have been deleted from all chats")
+                        }
+                        .onFailure { ex ->
+                            println(" Error while deleting messages: ${ex.message}")
+                        }
+                }
+                .onFailure { ex ->
+                    println(" Error fetching channel IDs: ${ex.message}")
+                }
+
     }
 
     fun sendImageMessage(

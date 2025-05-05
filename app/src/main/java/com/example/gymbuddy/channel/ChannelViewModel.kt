@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.ChannelRepositoryImpl
-import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,11 +44,12 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun addChannel(friendId: String) {
+    fun addChannel(friendId: String, onSuccess: (String) -> Unit = {}) {
         viewModelScope.launch {
+            val id = UUID.randomUUID().toString()
             val result = channelRepository.addChannel(
                 Channel(
-                    id = UUID.randomUUID().toString(),
+                    id = id,
                     lastMessage = "",
                     firstFriendId = friendId,
                     secondFriendId = Firebase.auth.currentUser!!.uid,
@@ -57,11 +57,37 @@ class ChannelViewModel @Inject constructor(
                 )
             )
             if (result.isSuccess) {
-                Result.success(true)
+                println("channel created")
+                onSuccess(id)
             } else {
                 println("cannot add a new channel")
             }
         }
+    }
+
+    suspend fun addChannelSuspend(friendId: String): String {
+        val id = UUID.randomUUID().toString()
+        val result = channelRepository.addChannel(
+            Channel(
+                id = id,
+                lastMessage = "",
+                firstFriendId = friendId,
+                secondFriendId = Firebase.auth.currentUser!!.uid,
+                createdAt = System.currentTimeMillis(),
+            )
+        )
+
+        if (result.isFailure) {
+            throw result.exceptionOrNull() ?: IllegalStateException("Cannot create channel")
+        }
+        return id
+    }
+
+    suspend fun findChannel(
+        friendId: String,
+    ): String {
+        val res = channelRepository.findChannel(friendId, currentUser)
+        return res.getOrNull() ?: ""
     }
 
     fun deleteChannel(
@@ -76,6 +102,15 @@ class ChannelViewModel @Inject constructor(
             } else {
                 onFailure(res.exceptionOrNull()?.localizedMessage ?: "Unknown error")
             }
+        }
+    }
+
+    suspend fun deleteAllChannels() {
+        val res = channelRepository.deleteAllChannels(currentUser)
+        if (res.isSuccess) {
+            println("all channels (conversations) have been deleted")
+        } else {
+            println("problems with deleting channels")
         }
     }
 
@@ -97,154 +132,4 @@ class ChannelViewModel @Inject constructor(
         )
         _friendsWithoutChat.value = withoutChat
     }
-
-//    // pobieramy liste znajomych z ktorymi mozna zaczac chat
-//    fun getListOfFriendChat(
-//        friendList: List<UserFoundInformation>,
-//        channels: Set<Channel>
-//    ) {
-//        val friendsWithoutChat = mutableSetOf<UserFoundInformation>()
-//        val setOfFriendsIdInChannels = mutableSetOf<String>()
-//        //dostaniemy id wszystkich friends w czatach
-//        for (channel in channels) {
-//            if (channel.secondFriendId == currentUser)
-//                setOfFriendsIdInChannels.add(channel.firstFriendId)
-//            else
-//                setOfFriendsIdInChannels.add(channel.secondFriendId)
-//        }
-//
-//        for (friend in friendList) {
-//            // jesli true to czat juz poczety
-//            if (friend.userId in setOfFriendsIdInChannels) {
-//                continue
-//            } else {
-//                friendsWithoutChat.add(friend)
-//            }
-//        }
-//        _friendsWithoutChat.value = friendsWithoutChat
-//    }
-
-//    init {
-//        getChannelsForParticularUser()
-//    }
-
-//    fun deleteChannel(channelId: String, onSuccess: () -> Unit = {}, onFailure: (Exception) -> Unit = {}) {
-//        db.collection("channels")
-//            .document(channelId)
-//            .delete()
-//            .addOnSuccessListener {
-//                onSuccess()
-//            }
-//            .addOnFailureListener { exception ->
-//                onFailure(exception)
-//            }
-//    }
-//
-//    fun getLastMessage(channelId: String, onSuccess: (String) -> Unit) {
-//        val docRef = db.collection("channels")
-//            .document(channelId)
-//
-//        docRef.get()
-//            .addOnSuccessListener { document ->
-//                if (document != null && document.exists()) {
-//                    val value = document.getString("lastMessage")
-//                    if (value != null) {
-//                        onSuccess(value)
-//                    }
-//                }
-//            }
-//            .addOnFailureListener { exception ->
-//                println("Error getting document: $exception")
-//            }
-//    }
-//
-//    // friends z ktorymi mozna stworzyc czat (z ktorymi nie byl jeszce stworzony)
-//    fun getListOfFriendChat(
-//        friendList: List<UserFoundInformation>,
-//        channels: Set<Channel>
-//    ) {
-//        val setOfFriendsChat = mutableSetOf<UserFoundInformation>()
-//        val setOfFriendsIdInChannels = mutableSetOf<String>()
-//        //dostaniemy id wszystkich friends w czatach
-//        for (channel in channels) {
-//            if (channel.secondFriendId == currentUser)
-//                setOfFriendsIdInChannels.add(channel.firstFriendId)
-//            else
-//                setOfFriendsIdInChannels.add(channel.secondFriendId)
-//        }
-//
-//        for (friend in friendList) {
-//            // jesli true to czat juz poczety
-//            if (friend.userId in setOfFriendsIdInChannels) {
-//                continue
-//            } else {
-//                setOfFriendsChat.add(friend)
-//            }
-//        }
-//        _setOfFriendsChat.value = setOfFriendsChat
-//    }
-//
-//    // pobieramy channels
-//    private fun getChannelsForParticularUser() {
-//        val channels = mutableSetOf<Channel>()
-//
-//        db.collection("channels")
-//            .whereEqualTo("firstFriendId", currentUser)
-//            .addSnapshotListener { querySnapshot, error ->
-//                if (error != null) {
-//                    println("Error fetching channels: $error")
-//                    return@addSnapshotListener
-//                }
-//                if (querySnapshot != null) {
-//                    for (document in querySnapshot.documents) {
-//                        val id = document.id
-//                        val firstFriendId = document.getString("firstFriendId") ?: ""
-//                        val secondFriendId = document.getString("secondFriendId") ?: ""
-//                        val createdAt = document.getLong("createdAt") ?: System.currentTimeMillis()
-//                        channels.add(Channel(id, firstFriendId, secondFriendId, createdAt))
-//                    }
-//                    _channels.value = channels
-//                }
-//            }
-//
-//        db.collection("channels")
-//            .whereEqualTo("secondFriendId", currentUser)
-//            .addSnapshotListener { querySnapshot, error ->
-//                if (error != null) {
-//                    println("Error fetching channels: $error")
-//                    return@addSnapshotListener
-//                }
-//                if (querySnapshot != null) {
-//                    for (document in querySnapshot.documents) {
-//                        val id = document.id
-//                        val firstFriendId = document.getString("firstFriendId") ?: ""
-//                        val secondFriendId = document.getString("secondFriendId") ?: ""
-//                        val createdAt = document.getLong("createdAt") ?: System.currentTimeMillis()
-//                        channels.add(Channel(id, firstFriendId, secondFriendId, createdAt))
-//                    }
-//                    _channels.value = channels
-//                }
-//            }
-//    }
-//
-//    fun addChannel(friendId: String) {
-//        val newChannel = Channel(
-//            firstFriendId = currentUser,
-//            secondFriendId = friendId,
-//            createdAt = System.currentTimeMillis()
-//        )
-//        db.collection("channels")
-//            .add(newChannel)
-//            .addOnSuccessListener { documentReference ->
-//                db.collection("channels")
-//                    .document(documentReference.id)
-//                    .update("id", documentReference.id)
-//                    .addOnSuccessListener {
-//                        getChannelsForParticularUser()
-//                    }
-//            }
-//            .addOnFailureListener { e ->
-//                println("Error adding channel $e")
-//            }
-//    }
 }

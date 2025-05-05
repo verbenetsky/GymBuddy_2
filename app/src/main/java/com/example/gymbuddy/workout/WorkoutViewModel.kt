@@ -9,6 +9,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Query
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -133,6 +134,33 @@ class WorkoutViewModel @Inject constructor() : ViewModel() {
                 println("Error deleting workout: $e")
             }
         }
+    }
+
+    suspend fun removeAllWorkoutsFromDb() {
+            try {
+                while (true) {
+                    val snapshot: QuerySnapshot = db.collection("workouts")
+                        .document(currentUserUID)
+                        .collection("workouts_of_user")
+                        .limit(500)
+                        .get()
+                        .await()
+
+                    if (snapshot.isEmpty) {
+                        break
+                    }
+                    val batch = db.batch()
+                    snapshot.documents.forEach { batch.delete(it.reference) }
+                    batch.commit().await()
+                }
+
+                db.collection("workouts")
+                    .document(currentUserUID)
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                println("Error deleting workout: $e")
+            }
     }
 
     // ---------------------------------------------------------------------------------------------

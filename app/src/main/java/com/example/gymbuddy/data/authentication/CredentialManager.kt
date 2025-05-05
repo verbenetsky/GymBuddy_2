@@ -15,7 +15,6 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
@@ -56,12 +55,12 @@ class CredentialManager(private val activity: Activity) {
             val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(true)
                 .setServerClientId(serverClientId)
-                .setAutoSelectEnabled(true)
+                .setAutoSelectEnabled(false)
                 .setNonce(nonce)
                 .build()
 
             val request = GetCredentialRequest.Builder()
-                .addCredentialOption(GetPasswordOption())
+                .addCredentialOption(GetPasswordOption(isAutoSelectAllowed = false))
                 .addCredentialOption(googleIdOption)
                 .build()
 

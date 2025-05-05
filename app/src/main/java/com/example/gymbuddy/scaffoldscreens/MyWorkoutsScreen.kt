@@ -2,7 +2,9 @@ package com.example.gymbuddy.scaffoldscreens
 
 import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +52,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -64,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -78,6 +82,8 @@ import com.example.gymbuddy.datasource.SortAndFilterOption.typeOptions
 import com.example.gymbuddy.datasource.SortAndFilterOption.sortingOptions
 import com.example.gymbuddy.datasource.SortAndFilterOption.statusOptions
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
+import com.example.gymbuddy.ui.theme.surfaceContainerLowDark
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.example.gymbuddy.utils.CommonUtils.workoutStateToMarkdown
 import com.example.gymbuddy.workout.WorkoutState
 import com.example.gymbuddy.workout.WorkoutViewModel
@@ -135,7 +141,11 @@ fun MyWorkoutsScreen(
     var sortingOption by remember { mutableStateOf("workoutDate") }
     var sortingDirection by remember { mutableStateOf(Query.Direction.ASCENDING) }
 
-    val tempFriendIdToFindAChannel by remember { mutableStateOf("") }
+    DisposableEffect(uid) {
+        friendRequestViewModel.startListeningFriends(uid)
+        onDispose { friendRequestViewModel.stopListeningFriends() }
+    }
+
 
     // od old wiecej milisekund minelo
     when (selectedOption) {
@@ -216,7 +226,10 @@ fun MyWorkoutsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { navigateToAddWorkoutScreen() }) {
+            FloatingActionButton(
+                onClick = { navigateToAddWorkoutScreen() },
+                contentColor = if (!isSystemInDarkTheme()) Color.White else surfaceContainerLowDark
+            ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add Workout"
@@ -224,41 +237,47 @@ fun MyWorkoutsScreen(
             }
         },
         content = {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
+            ) {
                 item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .size(60.dp)
-                            .padding(8.dp)
-                            .clickable {
-                                showBottomSheetSortFilter = true
-                            }
-                    ) {
-                        Row(
+
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                                .size(60.dp)
+                                .padding(8.dp)
+                                .clickable {
+                                    showBottomSheetSortFilter = true
+                                }
                         ) {
-                            Text(
-                                "Sort & Filter",
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    "Sort & Filter",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp)
+                                )
 
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Sort,
-                                contentDescription = "Filter"
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Icon(
-                                imageVector = Icons.Default.FilterAlt,
-                                contentDescription = "Filter"
-                            )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Filter"
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Icon(
+                                    imageVector = Icons.Default.FilterAlt,
+                                    contentDescription = "Filter"
+                                )
+                            }
                         }
-                    }
+
                 }
                 if (workoutsState.value == WorkoutViewModel.WorkoutsState.Loading) {
                     item {
@@ -270,6 +289,23 @@ fun MyWorkoutsScreen(
                         }
                     }
                 } else if (workoutsState.value == WorkoutViewModel.WorkoutsState.Loaded) {
+
+                    if (workoutListState.value.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillParentMaxSize()
+                                    .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Nothing here",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                            }
+                        }
+                    }
+
                     items(workoutListState.value) { workout ->
                         Workout(
                             onShareClick = {
@@ -285,10 +321,6 @@ fun MyWorkoutsScreen(
                                 }
                             },
                             onCardClick = {
-                                workoutViewModel.tryToEditWorkout(workout)
-                                navigateToEditScreen()
-                            },
-                            onEditClick = {
                                 workoutViewModel.tryToEditWorkout(workout)
                                 navigateToEditScreen()
                             },
@@ -386,7 +418,7 @@ fun MyWorkoutsScreen(
                             onFailure = {
                                 Toast.makeText(
                                     context,
-                                    "Try again",
+                                    "You need to start a conversation with user before sharing",
                                     Toast.LENGTH_LONG
                                 ).show()
                             })
@@ -423,7 +455,6 @@ fun MyWorkoutsScreen(
 fun Workout( // singel record of workout
     onShareClick: () -> Unit,
     onCardClick: () -> Unit,
-    onEditClick: () -> Unit,
     workoutState: WorkoutState,
     onDeleteClick: () -> Unit
 ) {
@@ -446,15 +477,16 @@ fun Workout( // singel record of workout
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = workoutState.type,
+                    text = workoutState.type + " ",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 18.sp,
-                        color = Color.White
+                        color = if(isSystemInDarkTheme()) Color.White else Color.Black
+
                     )
                 )
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(
@@ -462,21 +494,16 @@ fun Workout( // singel record of workout
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
-                        color = Color.White
+                        color = if(isSystemInDarkTheme()) Color.White else Color.Black
                     )
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
 
                 IconButton(onClick = { onDeleteClick() }) {
                     Icon(imageVector = Icons.Default.Delete, contentDescription = "delete icon")
                 }
 
-                IconButton(onClick = { onEditClick() }) {
-                    Icon(imageVector = Icons.Default.Edit, contentDescription = "edit icon")
-                }
                 IconButton(onClick = { onShareClick() }) {
-                    Icon(imageVector = Icons.Default.Share, contentDescription = "share icon")
+                    Icon(imageVector = Icons.Default.Share, contentDescription = "share icon", modifier = Modifier.weight(1f))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -491,7 +518,7 @@ fun Workout( // singel record of workout
                     text = "Status: ${workoutState.status}",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 15.sp,
-                        color = Color.White
+                        color = if(isSystemInDarkTheme()) Color.White else Color.Black
                     )
                 )
 
@@ -513,7 +540,7 @@ fun Workout( // singel record of workout
                     text = "Duration: ${formatDuration(workoutState.workoutEnd - workoutState.workoutStart)}",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 15.sp,
-                        color = Color.White
+                        color = if(isSystemInDarkTheme()) Color.White else Color.Black
                     )
                 )
                 val message = when (workoutState.type) {
@@ -771,7 +798,7 @@ fun ModalBottomSheetSortFilter(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Save")
             }

@@ -62,18 +62,15 @@ class ChatBotViewModel @Inject constructor(
         }
     }
 
-    fun deleteConversation(onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            val res = chatBotRepository.deleteChatBotConversation(userId)
-            if (res.isSuccess) {
-                _messageListChatBot.value = emptyList()
-                onSuccess()
-            } else {
-                println("chat bot error while deleting conv")
-            }
+    suspend fun deleteConversation(onSuccess: () -> Unit = {}) {
+        val res = chatBotRepository.deleteChatBotConversation(userId)
+        if (res.isSuccess) {
+            _messageListChatBot.value = emptyList()
+            onSuccess()
+        } else {
+            println("chat bot error while deleting conv")
         }
     }
-
 }
 
 sealed class ChatBotResponseState {
@@ -91,6 +88,6 @@ object ChatBotModule {
     fun provideGenerativeModel(): GenerativeModel =
         GenerativeModel(
             modelName = BuildConfig.GENERATIVE_MODEL_NAME,
-            apiKey    = BuildConfig.GENERATIVE_API_KEY
+            apiKey = BuildConfig.GENERATIVE_API_KEY
         )
 }

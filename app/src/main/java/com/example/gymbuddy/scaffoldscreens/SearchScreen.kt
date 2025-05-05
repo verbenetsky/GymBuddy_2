@@ -2,6 +2,8 @@ package com.example.gymbuddy.scaffoldscreens
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,12 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageScope
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
 import com.example.gymbuddy.data.UserFoundInformation
@@ -55,6 +61,7 @@ import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -70,6 +77,7 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isDarkTheme = isSystemInDarkTheme()
     val uid = Firebase.auth.currentUser?.uid ?: return
 
     val userFoundInformation by userSearchViewModel.userFoundInformation.collectAsState() // info about found user
@@ -77,26 +85,25 @@ fun SearchScreen(
 
     var alertDialogState by remember { mutableStateOf(false) }
 
-    var searchFieldValue by remember { mutableStateOf("") }
-
     val userSearchState by userSearchViewModel.userSearchState.collectAsState()
+
+    val searchFieldValue by userSearchViewModel.searchFieldValue.collectAsState()
 
     // val buttonState by buttonStateManager.buttonState.collectAsState()
 
     // za kazdym razem jak powracamy do ekranu search to zerujemy stan zeby uniknac takiej sytuacji ze
     // zostanie wyszukany jakis user (friend) ale w polu searchFieldValue jest pusto
-    LaunchedEffect(Unit) {
-        userSearchViewModel.updateSearchState(UserSearchState.NothingFound)
-    }
+
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(if (!isDarkTheme) MaterialTheme.colorScheme.surface else surfaceDark )
             .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
         OutlinedTextField(
             value = searchFieldValue,
-            onValueChange = { searchFieldValue = it },
+            onValueChange = { userSearchViewModel.updateSearchField(it) },
             singleLine = true,
             label = { Text(text = "Enter user's username to search") },
             trailingIcon = {
@@ -124,7 +131,9 @@ fun SearchScreen(
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 4.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -154,7 +163,11 @@ fun SearchScreen(
                         friendRequestViewModel.sendFriendRequest(
                             friendRequestDto = friendRequestInformationDto,
                             onSuccess = {
-                                friendRequestViewModel.sendFriendRequestToUser(FriendRequestDto(userFoundInformation.fcmToken)) // wysylanie powiadomienia
+                                friendRequestViewModel.sendFriendRequestToUser(
+                                    FriendRequestDto(
+                                        userFoundInformation.fcmToken
+                                    )
+                                ) // wysylanie powiadomienia
                                 Toast.makeText(
                                     context,
                                     "Friend request successfully sent",
@@ -183,7 +196,10 @@ fun SearchScreen(
                             friendId = userFoundInformation.userId,
                             onSuccess = {
                                 friendRequestViewModel.sendDeclineNotification(
-                                    AcceptOrDeclineOrRemoveFriendDto(currentUserInformation.username, userFoundInformation.fcmToken)
+                                    AcceptOrDeclineOrRemoveFriendDto(
+                                        currentUserInformation.username,
+                                        userFoundInformation.fcmToken
+                                    )
                                 )
                                 Toast.makeText(
                                     context,
@@ -248,7 +264,6 @@ fun SearchScreen(
                         it.fcmToken
                     )
                 )
-                // todo refresh
             },
             userFoundInformation = userFoundInformation
         )
@@ -273,30 +288,54 @@ fun SingleRecordOfSearch(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .size(125.dp)
+            .size(200.dp)
+            .padding(4.dp),
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
             modifier = modifier
                 .fillMaxWidth(),
         ) {
-            var painter = painterResource(id = R.drawable.default_profile_picture)
 
-            if (userFoundInformation.profilePictureUrl.isNotEmpty()) {
-                painter = rememberAsyncImagePainter(userFoundInformation.profilePictureUrl)
-            }
-            Image(
-                painter = painter,
+            SubcomposeAsyncImage(
+                model = userFoundInformation.profilePictureUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(125.dp)
-                    .aspectRatio(1f)
+                    .size(200.dp)
+                    .aspectRatio(1f),
+                contentScale = ContentScale.Crop,
+                loading = {
+                    Box(
+                        Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }, error = {
+
+                    Image(
+                        painter = painterResource(id = R.drawable.default_profile_picture),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             )
+
+//            Image(
+//                painter = painter,
+//                contentDescription = null,
+//                contentScale = ContentScale.Crop,
+//                modifier = Modifier
+//                    .size(200.dp)
+//                    .aspectRatio(1f)
+//            )
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp),
+                    .padding(start = 6.dp, end = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(modifier = Modifier.weight(1f))
@@ -322,7 +361,7 @@ fun SingleRecordOfSearch(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (userFoundInformation.userId != userId) {
@@ -334,8 +373,9 @@ fun SingleRecordOfSearch(
                                     else -> onSendRequestClick()
                                 }
                             },
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(),
                             enabled = buttonState == "SendRequest" || buttonState == "Send Message" || buttonState == "Remove" || buttonState == "Decline",
                             contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -358,8 +398,8 @@ fun SingleRecordOfSearch(
                                 }
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
+                    
                     Button(
                         onClick = {
                             if (userFoundInformation.userId == userId) {
@@ -367,8 +407,9 @@ fun SingleRecordOfSearch(
                             } else
                                 onGuestProfileClick()
                         },
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             Color(0xFF855305).copy(alpha = 0.7f)
                         )
@@ -380,3 +421,4 @@ fun SingleRecordOfSearch(
         }
     }
 }
+

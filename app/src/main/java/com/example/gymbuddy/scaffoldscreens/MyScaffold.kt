@@ -84,6 +84,7 @@ import kotlinx.coroutines.launch
 fun MyScaffold(
     userManagementViewModel: UserManagementViewModel = hiltViewModel(),
     signInViewModel: SignInViewModel,
+    onDeleteConversationClick: () -> Unit,
     innerNavController: NavHostController,
     determineName: () -> String,
     onProfileClick: () -> Unit,
@@ -173,6 +174,7 @@ fun MyScaffold(
                                     "profile_screen" -> "My Profile"
                                     "my_friends_screen" -> "My Friends"
                                     "chatBot_screen" -> "AI ChatBot"
+                                    "message_screen" -> "Messages"
                                     "chat/{channelId}/{userId}" -> determineName()
                                     else -> stringResource(R.string.app_name)
                                 },
@@ -180,6 +182,7 @@ fun MyScaffold(
                             )
                         }
                     },
+
                     modifier = modifier
                         .clip(
                             RoundedCornerShape(
@@ -261,16 +264,7 @@ fun MyScaffold(
                                 dialogState = deleteDialogState,
                                 changeDialogState = { newValue -> deleteDialogState = newValue },
                                 onDeleteClick = {
-                                    //deleteConversationChatBot()
-//                                    chatBotViewModel.deleteConversation(
-//                                        onSuccess = {
-//                                            Toast.makeText(
-//                                                context,
-//                                                "Conversation deleted",
-//                                                Toast.LENGTH_SHORT
-//                                            ).show()
-//                                        }
-//                                    )
+                                    onDeleteConversationClick()
                                 }
                             )
 

@@ -139,23 +139,21 @@ class UserManagementViewModel(
         }
     }
 
-    fun deleteUserDataFromFirestore(
+    suspend fun deleteUserDataFromFirestore(
         onSuccess: () -> Unit,
         onFailure: () -> Unit,
         userId: String,
         username: String
     ) {
-        viewModelScope.launch {
-            val result = userRepository.deleteUser(userId)
-            println(result)
-            if (result.isSuccess) {
-                deleteUsernameFromDataBase(username)
-                clearForm()
-                onSuccess()
-                println("Deleted user from db successfully")
-            } else {
-                onFailure()
-            }
+        val result = userRepository.deleteUser(userId)
+        println(result)
+        if (result.isSuccess) {
+            deleteUsernameFromDataBase(username)
+            clearForm()
+            onSuccess()
+            println("Deleted user from db successfully")
+        } else {
+            onFailure()
         }
     }
 
@@ -228,7 +226,6 @@ class UserManagementViewModel(
         }
     }
 
-
     private fun deleteUsernameFromDataBase(username: String) {
         viewModelScope.launch {
             userRepository.deleteUsernameFromDataBase(username)
@@ -263,16 +260,15 @@ class UserManagementViewModel(
         }
     }
 
-    fun deleteProfilePicture(imageUri: String) {
+    suspend fun deleteProfilePicture(imageUri: String) {
         if (userInformationState.value.profilePictureUrl == "") {
             println("profile picture Url is empty")
             return
         }
-        viewModelScope.launch {
-            val result = cloudStorageRepository.deleteImage(imageUri)
-            if (result.isSuccess) {
-                println("profile picture deleted")
-            }
+
+        val result = cloudStorageRepository.deleteImage(imageUri)
+        if (result.isSuccess) {
+            println("profile picture deleted")
         }
     }
 

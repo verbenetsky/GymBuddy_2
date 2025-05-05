@@ -11,6 +11,8 @@ interface FriendRequestRepository {
     suspend fun acceptFriendRequest(currentUserId: String, senderId: String): Result<Boolean>
     suspend fun declineFriendRequest(currentUserId: String, senderId: String): Result<Boolean>
 
+    suspend fun deleteFriendRequests(currentUserId: String): Result<Boolean> // usunac wszystkie reqesty ze statusami: "Pending", "Accepted" gdzie wystepuje uid naszego usera
+
     fun observeIncomingFriendRequests(currentUserId: String): Flow<List<UserFoundInformation>>
     fun observeButtonState(currentUserId: String, searchedUserId: String): Flow<FriendButtonState>
     fun observeFriends(currentUserId: String): Flow<List<UserFoundInformation>>

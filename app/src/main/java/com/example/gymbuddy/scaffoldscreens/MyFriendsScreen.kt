@@ -2,6 +2,9 @@ package com.example.gymbuddy.scaffoldscreens
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,20 +43,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
+import com.example.gymbuddy.channel.ChannelViewModel
+import com.example.gymbuddy.chat.ChatViewModel
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 
 @Composable
 fun MyFriendsScreen(
     friendRequestViewModel: FriendRequestViewModel,
+    channelViewModel: ChannelViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel(),
     userSearchViewModel: UserSearchViewModel,
+    innerNavController: NavController,
     onSeeProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -60,6 +73,8 @@ fun MyFriendsScreen(
     val friendList by friendRequestViewModel.friendList.collectAsState()
 
     val context = LocalContext.current
+
+    val scope = rememberCoroutineScope()
 
     var alertDialogState by remember { mutableStateOf(false) }
     var myFriendsSubScreen by remember { mutableStateOf(false) }
@@ -82,7 +97,11 @@ fun MyFriendsScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,7 +112,7 @@ fun MyFriendsScreen(
                     myFriendsSubScreen = !myFriendsSubScreen
                     myInvitationSubScreen = !myInvitationSubScreen
                 },
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(10.dp),
                 enabled = !myFriendsSubScreen,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
@@ -109,7 +128,7 @@ fun MyFriendsScreen(
                     myFriendsSubScreen = !myFriendsSubScreen
                 },
                 enabled = !myInvitationSubScreen,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
                     Color(0xFF855305).copy(alpha = 0.7f)
@@ -134,8 +153,7 @@ fun MyFriendsScreen(
                                 friend.profilePictureUrl
                             )
                         SingleRecordOfFriendsList(
-                            onSeeProfileClick = {
-                                //onSeeProfileClick(friend.userId)
+                            onCardClick = {
                                 onSeeProfileClick()
                                 userSearchViewModel.getUserBasedOnUserId(friend.userId) {}
                             },
@@ -187,6 +205,7 @@ fun MyFriendsScreen(
                             firstName = friend.firstName,
                             lastName = friend.lastName,
                             username = friend.username,
+                            isDarkTheme = isSystemInDarkTheme()
                         )
                     }
                 }
@@ -208,12 +227,31 @@ fun MyFriendsScreen(
                             )
                         SingleRecordOfFriendsList(
                             myInvitationList = false,
-                            onSeeProfileClick = {
-                                userSearchViewModel.getUserBasedOnUserId(friend.userId) {}
+                            onCardClick = {
                                 onSeeProfileClick()
+                                userSearchViewModel.getUserBasedOnUserId(friend.userId) {}
                             },
-                            onSendMessageClick = { },
-                            onDeclineClick = { },
+                            onSendMessageClick = {
+
+                                scope.launch {
+                                    // 1) probujemy znalezc kanal
+                                    val existing = channelViewModel.findChannel(friend.userId)
+
+                                    // 2) Jeśli nie ma, tworzymy nowy i pobieramy jego id
+                                    val channelId = existing.ifEmpty {
+                                        channelViewModel.addChannelSuspend(friend.userId)
+                                    }
+
+                                    // 3) Pobieramy dane znajomego
+                                    val userInfo =
+                                        userSearchViewModel.getUserBasedOnUserId(friend.userId)
+                                    val fullName = "${userInfo?.firstName} ${userInfo?.lastName}"
+
+                                    // 4) Ustawiamy tytuł czatu i nawigujemy
+                                    chatViewModel.updateCurrentChatName(fullName)
+                                    innerNavController.navigate("chat/$channelId/${friend.userId}")
+                                }
+                            },
                             painter = painter,
                             onAlertDialogStateChange = { newValue ->
                                 alertDialogState = newValue
@@ -222,6 +260,7 @@ fun MyFriendsScreen(
                             firstName = friend.firstName,
                             lastName = friend.lastName,
                             username = friend.username,
+                            isDarkTheme = isSystemInDarkTheme()
                         )
                     }
                 }
@@ -258,7 +297,7 @@ fun MyFriendsScreen(
 
 @Composable
 fun SingleRecordOfFriendsList(
-    onSeeProfileClick: () -> Unit,
+    isDarkTheme: Boolean,
     onAcceptClick: () -> Unit = {},
     onSendMessageClick: () -> Unit = {},
     onAlertDialogStateChange: (Boolean) -> Unit = {},
@@ -268,6 +307,7 @@ fun SingleRecordOfFriendsList(
     painter: Painter,
     username: String,
     onDeclineClick: () -> Unit = {},
+    onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -275,7 +315,10 @@ fun SingleRecordOfFriendsList(
         modifier = modifier
             .padding(start = 8.dp, end = 8.dp)
             .fillMaxWidth()
-            .size(125.dp)
+            .size(200.dp)
+            .clickable {
+                onCardClick()
+            }
     ) {
         Row(
             modifier = modifier
@@ -286,7 +329,7 @@ fun SingleRecordOfFriendsList(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(125.dp)
+                    .size(200.dp)
                     .aspectRatio(1f)
             )
             Column(
@@ -318,15 +361,16 @@ fun SingleRecordOfFriendsList(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Button(
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = { if (myInvitationList) onAcceptClick() else onSendMessageClick() },
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            Color(color = 0x0F0D791C).copy(alpha = 0.5f)
+                        shape = RoundedCornerShape(10.dp),
+                        colors =
+                        ButtonDefaults.buttonColors(
+                            if (myInvitationList) Color(color = 0x0F0D791C).copy(alpha = 0.5f) else MaterialTheme.colorScheme.secondary
                         ),
                         contentPadding = PaddingValues(0.dp)
                     ) {
@@ -334,18 +378,22 @@ fun SingleRecordOfFriendsList(
                             text = if (myInvitationList) "Accept" else "Send Message",
                             fontSize = 10.sp,
                             maxLines = 1,
-                            color = Color.White
+                            color = if (isDarkTheme) {
+                                if (myInvitationList) Color.White else Color.Black
+                            } else {
+                                Color.White
+                            }
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = {
                             if (myInvitationList) onDeclineClick() else {
                                 onAlertDialogStateChange(true)
                             }
                         },
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(0.dp),
                         colors = ButtonDefaults.buttonColors(
                             Color(0xFFD31212).copy(alpha = 0.7f)
@@ -356,18 +404,6 @@ fun SingleRecordOfFriendsList(
                             fontSize = 11.sp,
                             color = Color.White
                         )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onSeeProfileClick,
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            Color(0xFF855305).copy(alpha = 0.7f)
-                        )
-                    ) {
-                        Text(text = "See Profile", fontSize = 11.sp, color = Color.White)
                     }
                 }
             }

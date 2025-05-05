@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,20 +101,12 @@ fun SignInScreen2(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background( if (isSystemInDarkTheme()) Color.Black else Color.White)
                 .verticalScroll(scrollState)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(modifier = Modifier.height(100.dp))
-
-//            Box {
-//                Image(
-//                    painter = painterResource(id = CommonUtils.logoTheme()),
-//                    contentDescription = null,
-//                    modifier = Modifier.size(150.dp)
-//                )
-//            }
 
             Text(
                 text = stringResource(R.string.enter_your_password),
@@ -197,6 +190,7 @@ fun SignInScreen2(
                         email = userData.email,
                         password = password,
                         onSuccess = {
+                            signInViewModel.setAuthState(SignInViewModel.AuthState.Authenticated)
                             navigateToMyApp()
                             userManagementViewModel.fetchUserData()
                             Toast.makeText(
@@ -217,7 +211,7 @@ fun SignInScreen2(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 48.dp, end = 48.dp),
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(10.dp),
                 enabled = validation.isPasswordValid && password.isNotEmpty() && userData.email.isNotEmpty()
             ) {
                 Text(

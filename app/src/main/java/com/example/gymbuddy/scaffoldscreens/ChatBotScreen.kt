@@ -3,6 +3,7 @@ package com.example.gymbuddy.scaffoldscreens
 import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -56,11 +58,12 @@ import com.example.gymbuddy.chat.ChatBotMessage
 import com.example.gymbuddy.chat.ChatBotResponseState
 import com.example.gymbuddy.chat.ChatBotViewModel
 import com.example.gymbuddy.chat.dateConverter
+import com.example.gymbuddy.ui.theme.surfaceDark
 import kotlinx.coroutines.delay
 
 @Composable
 fun ChatBotScreen(
-    chatBotViewModel: ChatBotViewModel = hiltViewModel(),
+    chatBotViewModel: ChatBotViewModel,
 ) {
     val messages = chatBotViewModel.messageListChatBot.collectAsState()
     val listState = rememberLazyListState()
@@ -106,6 +109,7 @@ fun ChatListMessages(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -158,7 +162,7 @@ fun ChatListMessages(
                 .height(55.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .align(Alignment.BottomCenter)
-                .background(Color(0xFF462A00)),
+                .background(if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(0xFFFFF8F4)),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -167,15 +171,29 @@ fun ChatListMessages(
                 value = msg.value,
                 onValueChange = { msg.value = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text(text = "Type a message") },
+
+                placeholder = {
+                    Text(
+                        text = "Type a message",
+                        color = if (!isSystemInDarkTheme()) Color.Black else LocalContentColor.current
+                    )
+                },
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Done
                 ),
                 colors = TextFieldDefaults.colors().copy(
-                    focusedContainerColor = Color(0xFF462A00),
-                    unfocusedContainerColor = Color(0xFF462A00),
-                    focusedIndicatorColor = Color(0xFF462A00),
-                    unfocusedIndicatorColor = Color(0xFF462A00)
+                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    focusedIndicatorColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    unfocusedIndicatorColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    )
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {

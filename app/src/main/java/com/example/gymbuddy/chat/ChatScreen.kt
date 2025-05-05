@@ -19,6 +19,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import android.widget.TextView
 import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
@@ -41,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
@@ -225,7 +227,11 @@ fun ChatListMessages(
     val msg = remember { mutableStateOf("") }
     val hideKeyboardController = LocalSoftwareKeyboardController.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (!isSystemInDarkTheme()) Color.White else Color(0xFF130D07))
+    ) {
         LazyColumn(
             contentPadding = PaddingValues(bottom = 80.dp),
             state = listState,
@@ -243,7 +249,11 @@ fun ChatListMessages(
                 .height(55.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .align(Alignment.BottomCenter)
-                .background(Color(0xFF462A00)),
+                .background(
+                    if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    )
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -264,10 +274,18 @@ fun ChatListMessages(
                 placeholder = { Text(text = "Type a message") },
                 keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                 colors = TextFieldDefaults.colors().copy(
-                    focusedContainerColor = Color(0xFF462A00),
-                    unfocusedContainerColor = Color(0xFF462A00),
-                    focusedIndicatorColor = Color(0xFF462A00),
-                    unfocusedIndicatorColor = Color(0xFF462A00)
+                    focusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    unfocusedContainerColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    focusedIndicatorColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    ),
+                    unfocusedIndicatorColor = if (isSystemInDarkTheme()) Color(0xFF462A00) else Color(
+                        0xFFFFF8F4
+                    )
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
@@ -357,13 +375,19 @@ fun ChatBubble(message: Message, shareWorkoutMessage: Boolean) {
                         }
 
                     }
+                    val textColor = Color.White
+
                     Text(
                         text = dateConverter(message.createdAt),
-                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp),
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 10.sp              // ustawiasz tylko wielkość
+                        ),
+                        color = textColor,             // kolor tu
                         modifier = Modifier
                             .padding(top = 4.dp)
                             .align(if (isCurrentUser) Alignment.End else Alignment.Start)
                     )
+
                 }
             }
         }

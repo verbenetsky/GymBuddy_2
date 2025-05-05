@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -59,7 +60,6 @@ fun SignInScreen(
     clearUserInformation: () -> Unit,
     onSignUpClick: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val userData by signInViewModel.userData.collectAsState()
     val validation by signInViewModel.signInValidation.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -79,11 +79,11 @@ fun SignInScreen(
     LaunchedEffect(Unit) {
         if (!triedAuto) {
             triedAuto = true
-            val res = accountManager.signIn()
-            when (res) {
+            when (val res = accountManager.signIn()) {
                 is SignInResultCred.Password -> {
                     signInViewModel.logIn(res.email, res.password, onSuccess = {
                         userManagementViewModel.fetchUserData()
+                        signInViewModel.setAuthState(SignInViewModel.AuthState.Authenticated)
                         navigateToMyApp()
                         Toast.makeText(
                             context,
@@ -91,7 +91,7 @@ fun SignInScreen(
                             Toast.LENGTH_SHORT
                         ).show()
                     }, onError = {
-
+                        Toast.makeText(context, "Invalid email and/or password.", Toast.LENGTH_SHORT).show()
                     })
                 }
 
@@ -99,10 +99,12 @@ fun SignInScreen(
                     signInViewModel.authenticateWithGoogle(res.idToken, onSuccess = { isNew, uid ->
                         if (isNew) {
                             println("new user")
+                            signInViewModel.setAuthState(SignInViewModel.AuthState.Authenticated)
                             navigateToRegistration()
                             signInViewModel.setUserData(res.email, uid)
                         } else {
                             println("old user")
+                            signInViewModel.setAuthState(SignInViewModel.AuthState.Authenticated)
                             userManagementViewModel.fetchUserData()
                             navigateToMyApp()
                             Toast.makeText(
@@ -135,7 +137,7 @@ fun SignInScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background( if (isSystemInDarkTheme()) Color.Black else Color.White)
             .imePadding()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -186,7 +188,7 @@ fun SignInScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 48.dp),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(10.dp),
             enabled = validation.isEmailValid && userData.email.isNotEmpty()
         ) {
             Text(

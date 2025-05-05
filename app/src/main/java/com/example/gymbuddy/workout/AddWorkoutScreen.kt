@@ -2,6 +2,8 @@ package com.example.gymbuddy.workout
 
 import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -35,6 +37,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SelectableDates
@@ -79,6 +82,7 @@ import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.datasource.StatusOfWorkoutData.statusOfWorkout
 import com.example.gymbuddy.datasource.TypeOfWorkoutData.TypeOfWorkout
 import com.example.gymbuddy.datasource.WorkoutReminderOptions.workoutReminderOptions
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -177,11 +181,14 @@ fun AddWorkoutScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
             .padding(8.dp)
             .verticalScroll(scrollState)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -321,11 +328,9 @@ fun AddWorkoutScreen(
                         Spacer(modifier = Modifier.weight(1f))
                         Text(text = selectedEndTime?.let { timePickerStateToString(it) } ?: "")
                     }
-
                     Spacer(modifier = Modifier.height(4.dp))
 
                     HorizontalDivider(thickness = 2.dp)
-
                 }
             }
         }
@@ -358,15 +363,14 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White,
-                                fontSize = 12.sp
+                                color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else surfaceDark,
+                                fontSize = 12.sp,textAlign = TextAlign.Center
                             ),
                             keyboardActions = KeyboardActions(onDone = {
                                 workoutViewModel.editNameForStrengthExercise(
                                     localTempName,
                                     exercise.id
                                 )
-
                                 keyboardController?.hide()
                                 focusManager.clearFocus()
                             }),
@@ -374,11 +378,10 @@ fun AddWorkoutScreen(
                                 keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
                             ),
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
+                                focusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
                             ),
                             modifier = Modifier
                                 .width(200.dp)
@@ -429,7 +432,9 @@ fun AddWorkoutScreen(
                                 workoutViewModel.updateKgInSet(exercise.id, set.id, it)
                             },
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.titleSmall.copy(color = Color.White),
+                            textStyle = MaterialTheme.typography.titleSmall.copy(
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
+                            ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(80.dp)
                         )
@@ -444,7 +449,9 @@ fun AddWorkoutScreen(
                                 workoutViewModel.updateRepsInSet(exercise.id, set.id, it)
                             },
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.titleSmall.copy(color = Color.White),
+                            textStyle = MaterialTheme.typography.titleSmall.copy(
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
+                            ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(80.dp)
                         )
@@ -473,7 +480,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addSetToExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                 ) {
                     Text("Add a set")
@@ -489,7 +496,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addExerciseForStrengthWorkout("")
                         strengthExerciseLimit++
                     },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled = if (strengthExerciseLimit == 20) false else true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -541,7 +548,7 @@ fun AddWorkoutScreen(
                             })
                     }
                 },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled =
                     strengthWorkoutState.value.listOfExercise.all { it.listOfSets.isNotEmpty() }
                             && strengthWorkoutState.value.listOfExercise.isNotEmpty()
@@ -589,7 +596,9 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, fontSize = 12.sp
+                                color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else surfaceDark,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
                             ),
                             keyboardActions = KeyboardActions(onDone = {
                                 workoutViewModel.editNameForCardioExercise(
@@ -602,11 +611,13 @@ fun AddWorkoutScreen(
                                 keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
                             ),
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
+                                focusedTextColor = if (isSystemInDarkTheme()) Color.Red else Color.Red,
+                                unfocusedTextColor = if (isSystemInDarkTheme()) Color.Red else Color.Red,
+                                disabledTextColor = if (isSystemInDarkTheme()) Color.Red else Color.Red,
+                                focusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
                             ),
                             modifier = Modifier
                                 .width(200.dp)
@@ -658,7 +669,7 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
                             ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(70.dp)
@@ -675,8 +686,7 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
                             ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(70.dp)
@@ -705,7 +715,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addCardioToExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                 ) {
                     Text("Add a cardio")
@@ -720,7 +730,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addExerciseForCardioWorkout("")
                         cardioExerciseLimit++
                     },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled = if (cardioExerciseLimit == 20) false else true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -771,7 +781,7 @@ fun AddWorkoutScreen(
                     }
 
                 },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled =
                     cardioWorkoutState.value.listOfExercise.all { it.listOfCardio.isNotEmpty() }
                             && cardioWorkoutState.value.listOfExercise.isNotEmpty()
@@ -819,7 +829,8 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, fontSize = 12.sp
+                                color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else surfaceDark,
+                                fontSize = 12.sp,textAlign = TextAlign.Center
                             ),
                             keyboardActions = KeyboardActions(onDone = {
                                 workoutViewModel.editNameForHitExercise(
@@ -832,11 +843,10 @@ fun AddWorkoutScreen(
                                 keyboardType = KeyboardType.Text, imeAction = ImeAction.Done
                             ),
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF18120B),
-                                unfocusedContainerColor = Color(0xFF18120B),
-                                focusedIndicatorColor = Color(0xFF18120B),
-                                unfocusedIndicatorColor = Color(0xFF18120B),
-                                cursorColor = Color.White
+                                focusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
+                                unfocusedIndicatorColor = if (isSystemInDarkTheme()) surfaceDark else MaterialTheme.colorScheme.surface,
                             ),
                             modifier = Modifier
                                 .width(200.dp)
@@ -887,7 +897,7 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White, textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
                             ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(70.dp)
@@ -904,8 +914,7 @@ fun AddWorkoutScreen(
                             },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.titleSmall.copy(
-                                color = Color.White,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center, color = if (isSystemInDarkTheme()) Color(0xFFFFF1E5) else Color(0xFF18120B)
                             ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(70.dp)
@@ -934,7 +943,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addHitToExercise(exercise.id)
                     },
                     contentPadding = PaddingValues(start = 4.dp, end = 4.dp),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                 ) {
                     Text("Add a HIT")
@@ -949,7 +958,7 @@ fun AddWorkoutScreen(
                         workoutViewModel.addExerciseForHitWorkout("")
                         hitExerciseLimit++
                     },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled = if (hitExerciseLimit == 20) false else true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1000,7 +1009,7 @@ fun AddWorkoutScreen(
                     }
 
                 },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     enabled = hitWorkoutState.value.listOfExercise.all { it.listOfHits.isNotEmpty() }
                             && hitWorkoutState.value.listOfExercise.isNotEmpty()
                             && hitWorkoutState.value.listOfExercise.all { it.listOfHits.all { it.duration != "" } }
@@ -1252,7 +1261,7 @@ fun TimeSelection(
         confirmButton = {
             Button(
                 onClick = { onConfirm(timePickerState) },
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(10.dp),
                 enabled = isTimeValid
             ) {
                 Text("Ok")
@@ -1261,7 +1270,7 @@ fun TimeSelection(
         dismissButton = {
             Button(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Cancel")
             }

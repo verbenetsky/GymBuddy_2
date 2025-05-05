@@ -3,6 +3,7 @@ package com.example.gymbuddy.scaffoldscreens
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -42,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,8 +54,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil3.compose.rememberAsyncImagePainter
 import com.example.gymbuddy.R
+import com.example.gymbuddy.channel.ChannelViewModel
+import com.example.gymbuddy.chat.ChatViewModel
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.SignInViewModel
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
@@ -63,19 +70,24 @@ import com.example.gymbuddy.friends.SendingRequestStatus
 import com.example.gymbuddy.pushnotification.AcceptOrDeclineOrRemoveFriendDto
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 @Composable
 fun GuestProfileScreen(
     authState: SignInViewModel.AuthState,
     userSearchViewModel: UserSearchViewModel,
-    onSendMessageClick: () -> Unit,
     friendRequestViewModel: FriendRequestViewModel,
     userManagementViewModel: UserManagementViewModel,
+    chatViewModel: ChatViewModel = hiltViewModel(),
+    channelViewModel: ChannelViewModel = hiltViewModel(),
+    innerNavController: NavController,
     modifier: Modifier = Modifier
 ) {
+    val scope = rememberCoroutineScope()
     val uid = Firebase.auth.currentUser?.uid ?: return
     val context = LocalContext.current
     val userFoundInformationState by userSearchViewModel.userFoundInformation.collectAsState()
@@ -84,6 +96,7 @@ fun GuestProfileScreen(
     var buttonStateExpanded by remember { mutableStateOf("") }
     var alertDialogState by remember { mutableStateOf(false) }
 
+    val darkTheme: Boolean = isSystemInDarkTheme()
 
     DisposableEffect(uid, userFoundInformationState.userId) {
         friendRequestViewModel.startObservingButton(uid, userFoundInformationState.userId)
@@ -98,19 +111,19 @@ fun GuestProfileScreen(
     when (buttonState) {
         FriendRequestRepositoryImpl.FriendButtonState.SendRequest.toString() -> {
             buttonStateExpanded = "Send Friend Request"
-        }
+        } // nie pokazywac send message
 
         FriendRequestRepositoryImpl.FriendButtonState.RequestSent.toString() -> {
             buttonStateExpanded = "Request has been sent"
-        }
+        } // nie pokazywac send message
 
         FriendRequestRepositoryImpl.FriendButtonState.Remove.toString() -> {
             buttonStateExpanded = "Remove"
-        }
+        } // pokazywac Send Message
 
         FriendRequestRepositoryImpl.FriendButtonState.Decline.toString() -> {
             buttonStateExpanded = "Decline"
-        }
+        } // nie pokazywac send message
     }
 
     if (authState == SignInViewModel.AuthState.Loading) {
@@ -123,7 +136,12 @@ fun GuestProfileScreen(
             CircularProgressIndicator()
         }
     } else {
-        Column {
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
+        ) {
             Card(
                 modifier = modifier
                     .fillMaxWidth()
@@ -152,7 +170,7 @@ fun GuestProfileScreen(
                     }
                     Text(
                         "${userFoundInformationState.firstName} ${userFoundInformationState.lastName}",
-                        style = MaterialTheme.typography.appBarTitle.copy(color = Color.White),
+                        style = MaterialTheme.typography.appBarTitle.copy(color = if (darkTheme) Color.White else Color.Black),
                         fontSize = MaterialTheme.typography.appBarTitle.fontSize,
                     )
                     Row(
@@ -170,7 +188,7 @@ fun GuestProfileScreen(
                             ) {
                                 Text(
                                     text = "@",
-                                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                                    style = MaterialTheme.typography.titleMedium.copy(color = if (darkTheme) Color.White else Color.Black)
                                 )
                                 BasicTextField(
                                     modifier = Modifier
@@ -180,16 +198,56 @@ fun GuestProfileScreen(
                                     onValueChange = {},
                                     enabled = false,
                                     singleLine = true,
-                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = if (darkTheme) Color.White else Color.Black)
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 8.dp, end = 8.dp)
                     ) {
+                        if (buttonStateExpanded == "Decline") {
+                            Button(
+                                onClick = {
+                                    friendRequestViewModel.acceptFriendRequest(
+                                        currentUserId = Firebase.auth.currentUser?.uid ?: "",
+                                        friendId = userFoundInformationState.userId,
+                                        onSuccess = {
+                                            friendRequestViewModel.sendAcceptNotification(
+                                                AcceptOrDeclineOrRemoveFriendDto(
+                                                    currentUserInformation.username,
+                                                    userFoundInformationState.fcmToken
+                                                )
+                                            )
+                                            Toast.makeText(
+                                                context,
+                                                "Friends request accepted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    Color(0xFF198D29)
+                                )
+                            ) {
+                                Text(
+                                    text = "Accept",
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Button(
                             onClick = {
 
@@ -248,61 +306,60 @@ fun GuestProfileScreen(
                                 .fillMaxWidth()
                                 .weight(if (buttonStateExpanded != "Decline") 2f else 1f),
                             enabled = buttonStateExpanded != "Request has been sent",
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 if (buttonStateExpanded == "Remove" || buttonStateExpanded == "Decline")
                                     Color(0xFFD31212).copy(alpha = 0.7f)
                                 else
-                                    Color(0x0F0D791C).copy(alpha = 0.5f)
+                                    Color(0xFF198D29)
                             )
                         ) {
-                            Text(text = buttonStateExpanded, color = Color.White)
+                            Text(
+                                text = buttonStateExpanded,
+                                color = Color.White
+                            )
                         }
-                        if (buttonStateExpanded == "Decline") {
-                            Spacer(modifier = Modifier.width(8.dp))
+
+                        Spacer(modifier = Modifier.width(8.dp))
+                        if (buttonStateExpanded == "Remove") {
+
                             Button(
                                 onClick = {
-//                                    onAcceptClick()
-                                    friendRequestViewModel.acceptFriendRequest(
-                                        currentUserId = Firebase.auth.currentUser?.uid ?: "",
-                                        friendId = userFoundInformationState.userId,
-                                        onSuccess = {
-                                            friendRequestViewModel.sendAcceptNotification(
-                                                AcceptOrDeclineOrRemoveFriendDto(
-                                                    currentUserInformation.username,
-                                                    userFoundInformationState.fcmToken
-                                                )
+                                    scope.launch {
+                                        // 1) próbuj znaleźć kanał
+                                        val existingChannelId = channelViewModel.findChannel(userFoundInformationState.userId)
+
+                                        // 2) jeśli pusty, to utwórz nowy i przypisz jego ID
+                                        val channelId = existingChannelId.ifEmpty {
+                                            channelViewModel.addChannelSuspend(
+                                                userFoundInformationState.userId
                                             )
-                                            Toast.makeText(
-                                                context,
-                                                "Friends request accepted",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
                                         }
-                                    )
+
+                                        // 3) pobierz suspend-owo profil usera
+                                        val userInfo = userSearchViewModel.getUserBasedOnUserId(userFoundInformationState.userId)
+                                        val fullName = "${userInfo?.firstName} ${userInfo?.lastName}"
+
+                                        // 4) ustaw tytuł czatu
+                                        chatViewModel.updateCurrentChatName(fullName)
+
+                                        // 5) nawiguj
+                                        innerNavController.navigate("chat/$channelId/${userFoundInformationState.userId}")
+                                    }
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
-                                shape = RoundedCornerShape(4.dp),
-                                contentPadding = PaddingValues(0.dp),
+                                    .weight(2f),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    Color(0xFF198D29)
+                                    MaterialTheme.colorScheme.secondary
                                 )
                             ) {
-                                Text(text = "Accept", color = Color.White)
+                                Text(
+                                    text = "Send Message",
+                                )
                             }
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = { onSendMessageClick() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(2f),
-                            shape = RoundedCornerShape(4.dp),
-                        ) {
-                            Text(text = "Send Message")
                         }
                     }
 
@@ -324,7 +381,8 @@ fun GuestProfileScreen(
                             textStyle = MaterialTheme.typography.titleMedium,
 
                             colors = TextFieldDefaults.colors(
-                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
+                                disabledTextColor = LocalContentColor.current,
+                                disabledLabelColor = LocalContentColor.current,
                             ),
                             leadingIcon = {
                                 Icon(
@@ -332,13 +390,19 @@ fun GuestProfileScreen(
                                     contentDescription = "Email Icon",
                                 )
                             },
-                            label = { Text("Email") })
+                            label = {
+                                Text(
+                                    "Email",
+                                )
+                            })
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     DateOfBirthInformationGuess(
-                        userFoundInformationState, modifier = Modifier
+                        userFoundInformationState = userFoundInformationState,
+                        isDarkTheme = darkTheme,
+                        modifier = Modifier
                             .padding(start = 12.dp, end = 12.dp, bottom = 4.dp)
                     )
 
@@ -359,10 +423,9 @@ fun GuestProfileScreen(
                             onValueChange = {},
                             maxLines = 2,
                             colors = TextFieldDefaults.colors(
-                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
-                                disabledIndicatorColor = Color(0xFF462A00),
-                                focusedIndicatorColor = Color(0xFF462A00),
-                                unfocusedIndicatorColor = Color(0xFF462A00),
+                                disabledIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             ),
                             leadingIcon = {
                                 Icon(
@@ -370,7 +433,11 @@ fun GuestProfileScreen(
                                     contentDescription = "Email Icon"
                                 )
                             },
-                            label = { Text("Hobbies:") })
+                            label = {
+                                Text(
+                                    "Hobbies:",
+                                )
+                            })
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -391,10 +458,9 @@ fun GuestProfileScreen(
                             onValueChange = {},
                             maxLines = 2,
                             colors = TextFieldDefaults.colors(
-                                disabledTextColor = Color.White, disabledLabelColor = Color.White,
-                                disabledIndicatorColor = Color(0xFF462A00),
-                                focusedIndicatorColor = Color(0xFF462A00),
-                                unfocusedIndicatorColor = Color(0xFF462A00),
+                                disabledIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             ),
                             leadingIcon = {
                                 Icon(
@@ -402,7 +468,11 @@ fun GuestProfileScreen(
                                     contentDescription = "Email Icon"
                                 )
                             },
-                            label = { Text("Goal:") })
+                            label = {
+                                Text(
+                                    "Goal:",
+                                )
+                            })
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                 }
@@ -438,6 +508,7 @@ fun GuestProfileScreen(
 @Composable
 fun DateOfBirthInformationGuess(
     userFoundInformationState: UserFoundInformation,
+    isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(

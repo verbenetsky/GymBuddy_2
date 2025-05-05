@@ -16,10 +16,14 @@ interface ChatRepository {
     ): Result<Message> // zwraca URl
     suspend fun sendMessage(channelId: String, message: Message): Result<Message>
     suspend fun deleteAllMessages(channelID: String): Result<Boolean>
+    suspend fun deleteAllMessagesFromAllChat(listOfChannelsId: List<String>): Result<Boolean>
     suspend fun deleteAllImages(channelID: String): Result<Boolean>
     suspend fun updateLastMessage(channelId: String, lastMessage: String): Result<Boolean>
     suspend fun findChannel(
         currentUserId: String,
         otherUserId: String
     ): String? /* zwraca channelId */
+
+    suspend fun getAllChannelsIdFromUser(currentUserId: String): Result<List<String>>
+    suspend fun deleteAllMessagesRelatedToUser(listOfChannelsId: List<String>): Result<Boolean>
 }

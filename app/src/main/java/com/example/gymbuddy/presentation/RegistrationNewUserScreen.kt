@@ -425,7 +425,7 @@ fun ContinueButton(
     Button(
         onClick = onContinueClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         enabled = isEnabled
     ) {
         Text(text = stringResource(R.string.continue_text))

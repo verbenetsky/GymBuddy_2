@@ -1,8 +1,10 @@
 package com.example.gymbuddy.navigation
 
 import android.annotation.SuppressLint
+import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,13 +15,18 @@ import com.example.gymbuddy.data.authentication.SignUpScreen
 import com.example.gymbuddy.data.authentication.UserManagementViewModel
 import com.example.gymbuddy.presentation.RegistrationNewUserScreen
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.gymbuddy.chat.ChatBotViewModel
 import com.example.gymbuddy.chat.ChatScreen
 import com.example.gymbuddy.chat.ChatViewModel
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
@@ -35,11 +42,11 @@ import com.example.gymbuddy.scaffoldscreens.ProfileScreen
 import com.example.gymbuddy.scaffoldscreens.SearchScreen
 import com.example.gymbuddy.workout.AddWorkoutScreen
 import com.example.gymbuddy.workout.EditWorkoutScreen
+import kotlinx.coroutines.launch
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
-    authState: SignInViewModel.AuthState,
     navController: NavHostController,
     signInViewModel: SignInViewModel,
     userManagementViewModel: UserManagementViewModel,
@@ -47,23 +54,22 @@ fun NavGraph(
     chatViewModel: ChatViewModel,
     userSearchViewModel: UserSearchViewModel,
 ) {
-    NavHost(navController = navController, startDestination = "sign_in") {
+
+    val authState by signInViewModel.authState.collectAsState()
+
+    if (authState is SignInViewModel.AuthState.Loading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = if (authState is SignInViewModel.AuthState.Authenticated || authState is SignInViewModel.AuthState.GoogleAuthenticated) "my_app" else "sign_in"
+    ) {
 
         composable("sign_in") {
-
-            LaunchedEffect(authState) {
-                if (authState == SignInViewModel.AuthState.Authenticated ||
-                    authState == SignInViewModel.AuthState.GoogleAuthenticated
-                ) {
-                    if (navController.currentDestination?.route != "my_app") { // my_app
-                        navController.navigate("my_app")
-                    }
-                } else {
-                    if (navController.currentDestination?.route != "sign_in") { // sign_in
-                        navController.navigate("sign_in")
-                    }
-                }
-            }
 
             SignInScreen(
                 signInViewModel = signInViewModel,
@@ -109,6 +115,10 @@ fun NavGraph(
         }
 
         composable("my_app") {
+            val context = LocalContext.current
+
+            val chatBotViewModel: ChatBotViewModel = hiltViewModel()
+            val scope = rememberCoroutineScope()
 
             val currentChatName by chatViewModel.currentChatName.collectAsState(initial = "")
             val title = currentChatName.ifBlank { "GymBuddy" }
@@ -130,23 +140,48 @@ fun NavGraph(
                 userManagementViewModel = userManagementViewModel,
                 innerNavController = innerNavController,
                 determineName = { title },
+                onDeleteConversationClick = {
+                    //ugly
+                    scope.launch {
+                        chatBotViewModel.deleteConversation {
+                            Toast.makeText(
+                                context,
+                                "Konwersacja z AI została usunięta",
+                                Toast.LENGTH_SHORT
+                            )
+                                .show()
+                        }
+                    }
+                }
             ) { innerPadding ->
                 NavHost(
                     navController = innerNavController,
                     startDestination = "about_screen",
                     modifier = Modifier.padding(innerPadding)
                 ) {
+                    composable("about_screen") {
+                        AboutScreen()
+                    }
+
                     composable("profile_screen") {
                         ProfileScreen(
                             signInViewModel = signInViewModel,
                             userManagementViewModel = userManagementViewModel,
-                            onDeleteClick = { navController.navigate("sign_in") }
+                            onDeleteClick = { navController.navigate("sign_in") },
+                            onDeleteContinueClick = {
+
+                            },
                         )
                     }
 
-                    composable("about_screen") {
-                        AboutScreen()
-                    }
+                    // delete workouts WorkoutViewModel
+                    // delete ai chatBot conversation ChatBotViewModel
+                    // delete channels ChannelViewModel
+                    // usunac wszystkie friendsShip z db (tam gdzie accepted)
+
+                    // usunac wszystkie messages ktore sa przypisane do czatu w ktorym jest user ktorego usuwamy, czyli:
+                    // pobieramy liste wszystkich channels id, w ktorych jest nasz user ktorego chcemy usunac
+                    // usuwamy wyszsktie te wiadomosci gdzie w wiedomosci w channelId jest jeden z naszych id
 
                     composable("search_screen") {
                         SearchScreen(
@@ -162,8 +197,8 @@ fun NavGraph(
                             authState = authState,
                             userSearchViewModel = userSearchViewModel,
                             friendRequestViewModel = friendRequestViewModel,
-                            onSendMessageClick = { }, //todo
-                            userManagementViewModel = userManagementViewModel
+                            userManagementViewModel = userManagementViewModel,
+                            innerNavController = innerNavController
                         )
                     }
 
@@ -172,6 +207,7 @@ fun NavGraph(
                             friendRequestViewModel = friendRequestViewModel,
                             userSearchViewModel = userSearchViewModel,
                             onSeeProfileClick = { innerNavController.navigate("guess_profile_screen") },
+                            innerNavController = innerNavController,
                         )
                     }
 
@@ -205,7 +241,7 @@ fun NavGraph(
                     }
 
                     composable(route = "chatBot_screen") {
-                        ChatBotScreen()
+                        ChatBotScreen(chatBotViewModel = chatBotViewModel)
                     }
 
                     composable(route = "my_workouts_screen") {

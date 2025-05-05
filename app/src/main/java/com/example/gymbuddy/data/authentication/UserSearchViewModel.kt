@@ -21,6 +21,13 @@ class UserSearchViewModel(
     private val _userSearchState = MutableStateFlow<UserSearchState>(UserSearchState.NothingFound)
     val userSearchState: StateFlow<UserSearchState> = _userSearchState.asStateFlow()
 
+    private val _searchFieldValue = MutableStateFlow("")
+    val searchFieldValue = _searchFieldValue.asStateFlow()
+
+    fun updateSearchField(newValue: String) {
+        _searchFieldValue.value = newValue
+    }
+
     // Chat Screen
     fun getUserBasedOnUserId(userId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {

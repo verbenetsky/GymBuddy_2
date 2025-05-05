@@ -1,6 +1,7 @@
 package com.example.gymbuddy.scaffoldscreens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -23,23 +24,23 @@ fun AboutScreen(modifier: Modifier = Modifier) {
 
     Card(
         modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+            .fillMaxSize(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Text(
-            text = stringResource(R.string.about_app),
-            style = MaterialTheme.typography.displayLarge
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.gym_buddy_r),
-            style = MaterialTheme.typography.displayLarge,
-        )
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.about_app),
+                style = MaterialTheme.typography.displayLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.gym_buddy_r),
+                style = MaterialTheme.typography.displayLarge,
+            )
 
-        Text(text = stringResource(R.string.git_hub_link),modifier = Modifier.clickable {
-            uriHandler.openUri("https://github.com/goofydoog/GymBuddy_2")
-        })
+            Text(text = stringResource(R.string.git_hub_link), modifier = Modifier.clickable {
+                uriHandler.openUri("https://github.com/goofydoog/GymBuddy_2")
+            })
+        }
     }
-
 }

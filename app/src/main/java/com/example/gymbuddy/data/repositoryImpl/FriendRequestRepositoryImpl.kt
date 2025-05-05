@@ -6,13 +6,17 @@ import com.example.gymbuddy.friends.SendingRequestStatus
 import com.example.gymbuddy.repository.FriendRequestRepository
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import okhttp3.Dispatcher
 
 class FriendRequestRepositoryImpl : FriendRequestRepository {
 
@@ -225,6 +229,45 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
             Result.failure(e)
         }
     }
+
+    // delete all request
+    override suspend fun deleteFriendRequests(currentUserId: String): Result<Boolean>  =
+        withContext(Dispatchers.IO) {
+             try {
+                while (true) {
+                    val snapshot: QuerySnapshot = db.collection("friendships")
+                        .whereEqualTo("receiverId", currentUserId )
+                        .limit(500)
+                        .get()
+                        .await()
+
+                    if (snapshot.isEmpty) {
+                        break
+                    }
+                    val batch = db.batch()
+                    snapshot.documents.forEach { batch.delete(it.reference) }
+                    batch.commit().await()
+                }
+
+                while (true) {
+                    val snapshot: QuerySnapshot = db.collection("friendships")
+                        .whereEqualTo("senderId", currentUserId )
+                        .limit(500)
+                        .get()
+                        .await()
+
+                    if (snapshot.isEmpty) {
+                        break
+                    }
+                    val batch = db.batch()
+                    snapshot.documents.forEach { batch.delete(it.reference) }
+                    batch.commit().await()
+                }
+                Result.success(true)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 
     override suspend fun acceptFriendRequest(
         currentUserId: String,

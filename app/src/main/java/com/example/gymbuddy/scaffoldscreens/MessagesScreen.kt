@@ -10,6 +10,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,15 +30,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.DismissState
 import androidx.compose.material.DismissValue
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
+import androidx.compose.material.rememberDismissState
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.rememberDismissState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -81,6 +81,8 @@ import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.authentication.UserSearchViewModel
 import com.example.gymbuddy.pushnotification.FriendRequestViewModel
 import com.example.gymbuddy.ui.theme.appBarTitle
+import com.example.gymbuddy.ui.theme.surfaceContainerLowDark
+import com.example.gymbuddy.ui.theme.surfaceDark
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.Dispatchers
@@ -103,13 +105,12 @@ fun MessagesScreen(
     val sheetState = rememberModalBottomSheetState()
     val context = LocalContext.current
 
-    val channelStatus by channelViewModel.channels.collectAsState()
+    val channelStatus by channelViewModel.channels.collectAsState() // lista wsyzstkich chatow
 
     val friendsList by friendRequestViewModel.friendList.collectAsState() // lista wszystkich znajomych
 
     // lista osob z ktorymi mozna rozpoczac czat
     val friendsWithoutChat by channelViewModel.friendsWithoutChat.collectAsState()
-
 
     LaunchedEffect(Unit) {
         println("lista of friends: $friendsList")
@@ -118,7 +119,6 @@ fun MessagesScreen(
     LaunchedEffect(friendsList) {
         channelViewModel.refreshFriendsWithoutChat(friendsWithoutChat.toList())
     }
-
 
     DisposableEffect(uid) {
         friendRequestViewModel.startListeningFriends(uid)
@@ -149,6 +149,7 @@ fun MessagesScreen(
                         ).show()
                     }
                 },
+                contentColor = if (!isSystemInDarkTheme()) Color.White else surfaceContainerLowDark
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -157,117 +158,107 @@ fun MessagesScreen(
             }
         },
         content = { paddingValues ->
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+            if (channelStatus.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
+                        .fillMaxSize(), contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Nothing here", style = MaterialTheme.typography.titleLarge)
+                }
+            } else {
+                Column(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .background(if (!isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else surfaceDark)
+                        .padding(paddingValues)
 
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn {
-                    item {
-                        Text(
-                            text = "Messages:",
-                            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black),
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
-                    item {
-                        TextField(
-                            value = "",
-                            onValueChange = {},
-                            placeholder = { Text(text = "Search...") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                        )
-                    }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn {
+                        items(channelStatus.toList()) { channel ->
+                            val friendId =
+                                if (channel.secondFriendId == Firebase.auth.currentUser!!.uid)
+                                    channel.firstFriendId
+                                else
+                                    channel.secondFriendId
 
-                    items(channelStatus.toList()) { channel ->
-                        val friendId =
-                            if (channel.secondFriendId == Firebase.auth.currentUser!!.uid)
-                                channel.firstFriendId
-                            else
-                                channel.secondFriendId
-
-                        val userInfo by produceState<UserFoundInformation?>(
-                            initialValue = null,
-                            key1 = friendId
-                        ) {
-                            value = userSearchViewModel.getUserBasedOnUserId(friendId)
-                            value?.let { userSearchViewModel.updateUserFoundInformation(it) }
-                        }
-
-                        if (userInfo == null) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        } else {
-                            val painter = rememberAsyncImagePainter(
-                                model = userInfo!!.profilePictureUrl,
-                                error = painterResource(R.drawable.default_profile_picture)
-                            )
-
-                            val lastMessage by produceState<String?>(
+                            val userInfo by produceState<UserFoundInformation?>(
                                 initialValue = null,
-                                key1 = channel.id
+                                key1 = friendId
                             ) {
-                                channelViewModel.getLastMessage(channel.id) { message ->
-                                    value = message
-                                }
+                                value = userSearchViewModel.getUserBasedOnUserId(friendId)
+                                value?.let { userSearchViewModel.updateUserFoundInformation(it) }
                             }
 
-                            val displayLastMessage =
-                                if (lastMessage == null)
-                                    ""
-                                else if (lastMessage!!.isEmpty()) {
-                                    ""
-                                } else {
-                                    lastMessage
+                            if (userInfo == null) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
                                 }
+                            } else {
+                                val painter = rememberAsyncImagePainter(
+                                    model = userInfo!!.profilePictureUrl,
+                                    error = painterResource(R.drawable.default_profile_picture)
+                                )
 
-                            SwipeToDeleteContainer(
-                                item = channel,
-                                onDelete = { deletedChannel ->
-
-                                    chatViewModel.deleteAllImages(deletedChannel.id) // usuwamy wszystkie zdjecia
-
-                                    coroutineScope.launch(Dispatchers.Main) {
-                                        Toast.makeText(
-                                            context,
-                                            "Deleted",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                val lastMessage by produceState<String?>(
+                                    initialValue = null,
+                                    key1 = channel.id
+                                ) {
+                                    channelViewModel.getLastMessage(channel.id) { message ->
+                                        value = message
                                     }
-
-                                    channelViewModel.deleteChannel( // usuwamy channel
-                                        channelId = deletedChannel.id,
-                                        onSuccess = { chatViewModel.deleteAllMessages(deletedChannel.id) } // usuwamy wszystkie wiadomosci
-                                    )
                                 }
 
-                            ) { ch ->
-                                println("channel id : ${ch.id}")
-                                if (displayLastMessage != null) {
-                                    ChannelItem(
-                                        firstName = userInfo!!.firstName,
-                                        lastName = userInfo!!.lastName,
-                                        painter = painter,
-                                        lastMessage = displayLastMessage
-                                    ) {
-                                        println("user info: $userInfo")
-                                        innerNavController.navigate("chat/${ch.id}/${userInfo!!.userId}")
-                                        val fullName = userInfo!!.firstName + userInfo!!.lastName
-                                        chatViewModel.updateCurrentChatName(fullName)
+                                val displayLastMessage =
+                                    if (lastMessage == null || lastMessage!!.isEmpty())
+                                        ""
+                                    else
+                                        lastMessage
 
-                                        coroutineScope.launch {
-                                            userSearchViewModel.getUserBasedOnUserId(userInfo!!.userId)
+                                SwipeToDeleteContainer(
+                                    item = channel, // tutaj sie wyznacza ten typ
+                                    onDelete = { deletedChannel ->
+
+                                        chatViewModel.deleteAllImages(deletedChannel.id) // usuwamy wszystkie zdjecia
+
+                                        coroutineScope.launch(Dispatchers.Main) {
+                                            Toast.makeText(
+                                                context,
+                                                "Deleted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+
+                                        channelViewModel.deleteChannel( // usuwamy channel
+                                            channelId = deletedChannel.id,
+                                            onSuccess = {
+                                                chatViewModel.deleteAllMessages(
+                                                    deletedChannel.id
+                                                )
+                                            } // usuwamy wszystkie wiadomosci
+                                        )
+                                    }
+                                ) { ch -> // content, typu Channel gdyz jest to generic
+                                    println("channel id : ${ch.id}")
+                                    if (displayLastMessage != null) {
+                                        ChannelItem(
+                                            firstName = userInfo!!.firstName,
+                                            lastName = userInfo!!.lastName,
+                                            painter = painter,
+                                            lastMessage = displayLastMessage
+                                        ) { // onClickChannelItem =
+                                            println("user info: $userInfo")
+                                            innerNavController.navigate("chat/${ch.id}/${userInfo!!.userId}")
+                                            val fullName = userInfo!!.firstName + userInfo!!.lastName
+                                            chatViewModel.updateCurrentChatName(fullName)
+
+                                            coroutineScope.launch {
+                                                userSearchViewModel.getUserBasedOnUserId(userInfo!!.userId)
+                                            }
                                         }
                                     }
                                 }
@@ -284,10 +275,10 @@ fun MessagesScreen(
             onDismissRequest = { addChannel.value = false },
             sheetState = sheetState,
         ) {
-            AddChannelDialog(friendsList = friendsWithoutChat.toList()) {
+            AddChannelDialog(friendsList = friendsWithoutChat.toList(), onAddChannel = {
                 channelViewModel.addChannel(it)
                 addChannel.value = false
-            }
+            })
         }
     }
 }
@@ -305,7 +296,11 @@ fun ChannelItem(
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF462A00))
+            .background(
+                if (!isSystemInDarkTheme()) Color(0xFF855400).copy(alpha = 0.5f) else Color(
+                    0xFF462A00
+                )
+            )
             .clickable {
                 onClick()
             },

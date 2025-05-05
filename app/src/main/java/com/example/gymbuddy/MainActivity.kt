@@ -21,22 +21,24 @@ import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.ViewModelProvider
 import com.example.gymbuddy.chat.ChatViewModel
+import com.example.gymbuddy.data.authentication.CredentialManager
+import com.example.gymbuddy.data.authentication.SignInViewModelFactory
+import com.example.gymbuddy.data.repositoryImpl.AuthRepositoryImpl
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-//    private val googleAuthUiClient by lazy {
-//        GoogleAuthUiClient(
-//            context = applicationContext,
-//            oneTapClient = Identity.getSignInClient(applicationContext)
-//        )
-//    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermission()
+        val accountManager = CredentialManager(this)
+        val factory = SignInViewModelFactory(
+            authRepo = AuthRepositoryImpl(),
+            accountManager = accountManager
+        )
         enableEdgeToEdge()
         setContent {
             GymBuddyTheme {
@@ -45,11 +47,12 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .statusBarsPadding()
                 ) {
+
+                    val signInViewModel = ViewModelProvider(this, factory).get(SignInViewModel::class.java)
+
                     val navController = rememberNavController()
-                    val signInViewModel: SignInViewModel = viewModel()
                     val userManagementViewModel: UserManagementViewModel = viewModel()
                     val userSearchViewModel: UserSearchViewModel = viewModel()
-                    val authState = signInViewModel.authState.collectAsStateWithLifecycle()
                     val chatViewModel: ChatViewModel = viewModel( )
 
                     NavGraph(
@@ -58,7 +61,6 @@ class MainActivity : ComponentActivity() {
                         userManagementViewModel = userManagementViewModel,
                         userSearchViewModel = userSearchViewModel,
                         chatViewModel = chatViewModel,
-                        authState = authState.value,
                     )
                 }
             }

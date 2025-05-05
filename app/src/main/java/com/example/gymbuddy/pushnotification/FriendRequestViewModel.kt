@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.gymbuddy.data.UserFoundInformation
 import com.example.gymbuddy.data.repositoryImpl.FriendRequestRepositoryImpl
 import com.example.gymbuddy.friends.FriendRequestInformationDto
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,8 +37,10 @@ class FriendRequestViewModel @Inject constructor(
     private val _friendsList = MutableStateFlow<List<UserFoundInformation>>(emptyList())
     val friendList: StateFlow<List<UserFoundInformation>> = _friendsList.asStateFlow()
 
-    private val _buttonState = MutableStateFlow<FriendRequestRepositoryImpl.FriendButtonState?>(null)
-    val buttonState: StateFlow<FriendRequestRepositoryImpl.FriendButtonState?> = _buttonState.asStateFlow()
+    private val _buttonState =
+        MutableStateFlow<FriendRequestRepositoryImpl.FriendButtonState?>(null)
+    val buttonState: StateFlow<FriendRequestRepositoryImpl.FriendButtonState?> =
+        _buttonState.asStateFlow()
 
     fun sendFriendRequest(
         friendRequestDto: FriendRequestInformationDto,
@@ -116,6 +120,17 @@ class FriendRequestViewModel @Inject constructor(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    suspend fun deleteAllFriendRequest() {
+        val res =
+            friendRequestRepository.deleteFriendRequests(Firebase.auth.currentUser?.uid.orEmpty())
+
+        if (res.isSuccess) {
+            println("All friends request deleted")
+        } else {
+            println("error while deleting friend request")
         }
     }
 

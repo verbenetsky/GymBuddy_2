@@ -21,7 +21,8 @@ import javax.inject.Singleton
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 class ChatRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore,
     private val storage: FirebaseStorage,
@@ -42,15 +43,15 @@ class ChatRepositoryImpl @Inject constructor(
             // 2) przygotuj obiekt Message
             val docRef = db.collection("messages").document()
             val message = Message(
-                id               = docRef.id,
-                senderId         = Firebase.auth.currentUser!!.uid,
-                senderName       = senderUsername,
+                id = docRef.id,
+                senderId = Firebase.auth.currentUser!!.uid,
+                senderName = senderUsername,
                 receiverFcmToken = receiverFcmToken,
-                message          = null,            // brak tekstu
-                imageUrl         = downloadUrl,     // URL obrazka
+                message = null,            // brak tekstu
+                imageUrl = downloadUrl,     // URL obrazka
                 shareWorkoutMessage = false,
-                createdAt        = System.currentTimeMillis(),
-                channelId        = channelId
+                createdAt = System.currentTimeMillis(),
+                channelId = channelId
             )
 
             // 3) zapisz w Firestore
@@ -86,12 +87,25 @@ class ChatRepositoryImpl @Inject constructor(
                 batch.delete(document.reference)
             }
             batch.commit().await()
-            println("All documents have been deleted.")
+            println("All documents have been deleted from one conversation")
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
+    override suspend fun deleteAllMessagesFromAllChat(listOfChannelsId: List<String>): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                for (channelId in listOfChannelsId) {
+                    deleteAllMessages(channelId)
+                }
+                Result.success(true)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
 
     override suspend fun deleteAllImages(channelID: String): Result<Boolean> { // for particular chat
         return try {
@@ -154,6 +168,55 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
 
+    override suspend fun getAllChannelsIdFromUser(currentUserId: String): Result<List<String>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val ids = mutableListOf<String>()
+                db.collection("channels")
+                    .whereEqualTo("firstFriendId", currentUserId)
+                    .limit(500)
+                    .get().await().documents
+                    .mapNotNull { it.getString("id") }
+                    .mapTo(ids) {it}
+
+                db.collection("channels")
+                    .whereEqualTo("secondFriendId", currentUserId)
+                    .limit(500)
+                    .get().await().documents
+                    .mapNotNull { it.getString("id") }
+                    .mapTo(ids) {it}
+
+                Result.success(ids)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+
+    override suspend fun deleteAllMessagesRelatedToUser(listOfChannelsId: List<String>): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                for (id in listOfChannelsId) { // dla kazdego channel
+                    while (true) { // pobieramy kazda wiadomosc ktora ma ten channelId w swoim polu, potrezbne zeby wszystkei wiadomosci usunac dla tego channelId
+                        val snapshot = db.collection("messages")
+                            .whereEqualTo("channelId", id)
+                            .limit(500)
+                            .get()
+                            .await()
+
+                        if (snapshot.isEmpty) break // jesli zadnej wiadomosci nie ma to wychodzimy
+
+                        val batch = db.batch()
+                        snapshot.documents.forEach { batch.delete(it.reference) }
+                        batch.commit().await()
+                    }
+                }
+                Result.success(true)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
     override fun listenForMessages(channelID: String): Flow<List<Message>> =
         callbackFlow {
             val sub = db.collection("messages")
@@ -169,6 +232,8 @@ class ChatRepositoryImpl @Inject constructor(
             awaitClose { sub.remove() }
         }
 }
+
+
 
 @Module
 @InstallIn(SingletonComponent::class)

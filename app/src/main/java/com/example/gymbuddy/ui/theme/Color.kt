@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 
 val googleButtonColorLight = Color(0xFFFFFFFF)
 val primaryLight = Color(0xFF855400)
-val onPrimaryLight = Color(0xFFFFFFFF)
+val onPrimaryLight = Color(0xFFFFF1E5)
 val primaryContainerLight = Color(0xFF8A6F4A)
 val onPrimaryContainerLight = Color(0xFF422700)
 val secondaryLight = Color(0xFF6B3306)
@@ -22,7 +22,8 @@ val errorContainerLight = Color(0xFFFFDAD6)
 val onErrorContainerLight = Color(0xFF410002)
 val backgroundLight = Color(0xFFFFF8F4)
 val onBackgroundLight = Color(0xFF211A13)
-val surfaceLight = Color(0xFFFFF8F4)
+val surfaceLight = Color(0xFFFFFFFF) // on surface top app bar
+// val surfaceLight = Color(0xFFFFF8F4) // on surface top app bar
 val onSurfaceLight = Color(0xFF211A13)
 val surfaceVariantLight = Color(0xFFF4DFCA)
 val onSurfaceVariantLight = Color(0xFF524435)
@@ -35,7 +36,7 @@ val inversePrimaryLight = Color(0xFFFFB95D)
 val surfaceDimLight = Color(0xFFE5D8CB)
 val surfaceBrightLight = Color(0xFFFFF8F4)
 val surfaceContainerLowestLight = Color(0xFFFFFFFF)
-val surfaceContainerLowLight = Color(0xFFFFF1E5)
+val surfaceContainerLowLight = Color(0xFFFFF1E5) // kolor modal sheet drawer
 val surfaceContainerLight = Color(0xFFFAEBDF)
 val surfaceContainerHighLight = Color(0xFFF4E6D9)
 val surfaceContainerHighestLight = Color(0xFFEEE0D4)
@@ -76,3 +77,5 @@ val surfaceContainerLowDark = Color(0xFF211A13)
 val surfaceContainerDark = Color(0xFF251E17)
 val surfaceContainerHighDark = Color(0xFF302921)
 val surfaceContainerHighestDark = Color(0xFF3B332B)
+
+// za kolor Card odpowiada surfaceContainerHighestDark,surfaceContainerHighestLight czemu tego nigdzie nie ma wtf
