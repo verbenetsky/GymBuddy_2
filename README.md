@@ -91,9 +91,8 @@ Additionally, **Cloud Functions** can react to Firestore events and either send 
 
 ## 📄 Thesis (Full Document Included)
 
-A full version of the **Bachelor’s thesis** describing the project (requirements, architecture, implementation details, and evaluation) is included in the repository under:
+A full version of the **Bachelor’s thesis** describing the project (requirements, architecture, implementation details, and evaluation) is available in the repository **Releases** section as an attached PDF.
 
-- `assets/` — full thesis document (PDF)
 
 ---
 
