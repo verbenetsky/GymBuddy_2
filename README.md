@@ -110,7 +110,12 @@ A full version of the **Bachelor’s thesis** describing the project (requiremen
 
 ---
 
+## 🖥️ Backend / Server
 
+A dedicated server component for this app is available here:  
+https://github.com/goofydoog/gymbuddy_fcm_server
+
+This repository contains the backend I built for GymBuddy, used mainly to support server-side features (e.g., sending push notifications via FCM).
 
 ## 📸 Screenshots
 
