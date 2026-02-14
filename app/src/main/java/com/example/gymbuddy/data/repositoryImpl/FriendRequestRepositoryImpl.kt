@@ -1,9 +1,9 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.friends.FriendRequestInformationDto
-import com.example.gymbuddy.friends.SendingRequestStatus
-import com.example.gymbuddy.repository.FriendRequestRepository
+import com.example.gymbuddy.data.model.UserFoundInformation
+import com.example.gymbuddy.data.model.FriendRequestInformationDto
+import com.example.gymbuddy.data.model.SendingRequestStatus
+import com.example.gymbuddy.data.repository.FriendRequestRepository
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import okhttp3.Dispatcher
 
 class FriendRequestRepositoryImpl : FriendRequestRepository {
 
@@ -70,10 +69,8 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
                     hasRecv             -> FriendButtonState.Decline
                     else                -> FriendButtonState.SendRequest
                 }
-
                 trySend(state).isSuccess
             }
-
         awaitClose { registration.remove() }
     }
 
@@ -88,7 +85,7 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
                     ids.chunked(10)
                         .flatMap { chunk ->
                             db.collection("users")
-                                .whereIn(FieldPath.documentId(), chunk)
+                                .whereIn(FieldPath.documentId(), chunk) // FieldPath.documentId() -> nazwa dokumentu ,czyli jego id
                                 .get()
                                 .await()
                                 .toObjects(UserFoundInformation::class.java)
@@ -108,16 +105,16 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
                 if (error != null) {
                     close(error); return@addSnapshotListener
                 }
-                // dodaj albo usuń sender->receiver ID
-                snapshot?.run {
+
+                if (snapshot != null) {
                     friendIds.clear()
-                    // najpierw wyczyść i zbierz z obu zapytań na nowo
-                    documents.forEach { doc ->
-                        doc.getString("receiverId")?.let { friendIds.add(it) }
+                    snapshot.documents.forEach { doc ->
+                        val receiverId = doc.getString("receiverId")
+                        if (receiverId != null) {
+                            friendIds.add(receiverId)
+                        }
                     }
-                    // teraz dokleimy jeszcze z drugiego listenera poniżej
                 }
-                // fetchujemy profile
                 launchFetchAndSend(friendIds)
             }
 
@@ -129,10 +126,14 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
                 if (error != null) {
                     close(error); return@addSnapshotListener
                 }
-                snapshot?.run {
+
+                if (snapshot != null) {
                     friendIds.clear()
-                    documents.forEach { doc ->
-                        doc.getString("senderId")?.let { friendIds.add(it) }
+                    snapshot.documents.forEach { doc ->
+                        val senderId = doc.getString("senderId")
+                        if (senderId != null) {
+                            friendIds.add(senderId)
+                        }
                     }
                 }
                 launchFetchAndSend(friendIds)
@@ -162,9 +163,7 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
         }
     }
 
-    override fun observeIncomingFriendRequests(
-        currentUserId: String
-    ): Flow<List<UserFoundInformation>> = callbackFlow {
+    override fun observeIncomingFriendRequests(currentUserId: String): Flow<List<UserFoundInformation>> = callbackFlow {
         // Dodajemy listenera do collection "friendships"
         val registration: ListenerRegistration = db.collection("friendships")
             .whereEqualTo("status", SendingRequestStatus.PENDING.name)
@@ -204,6 +203,7 @@ class FriendRequestRepositoryImpl : FriendRequestRepository {
         // Kiedy odbiorca Flow przestanie subskrybować, usuwamy listenera:
         awaitClose { registration.remove() }
     }
+
 
     override suspend fun declineFriendRequest(
         currentUserId: String,

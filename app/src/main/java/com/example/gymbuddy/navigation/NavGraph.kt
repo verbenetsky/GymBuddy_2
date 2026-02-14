@@ -8,12 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.gymbuddy.data.authentication.SignInScreen
-import com.example.gymbuddy.data.authentication.SignInScreen2
-import com.example.gymbuddy.data.authentication.SignInViewModel
-import com.example.gymbuddy.data.authentication.SignUpScreen
-import com.example.gymbuddy.data.authentication.UserManagementViewModel
-import com.example.gymbuddy.presentation.RegistrationNewUserScreen
+import com.example.gymbuddy.ui.auth.SignInScreen
+import com.example.gymbuddy.ui.auth.SignInScreen2
+import com.example.gymbuddy.ui.auth.AuthViewModel
+import com.example.gymbuddy.ui.auth.SignUpScreen
+import com.example.gymbuddy.ui.profile.UserManagementViewModel
+import com.example.gymbuddy.ui.auth.ProfileSetupScreen
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.collectAsState
@@ -26,29 +26,29 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.gymbuddy.chat.ChatBotViewModel
-import com.example.gymbuddy.chat.ChatScreen
-import com.example.gymbuddy.chat.ChatViewModel
-import com.example.gymbuddy.data.authentication.UserSearchViewModel
-import com.example.gymbuddy.pushnotification.FriendRequestViewModel
-import com.example.gymbuddy.scaffoldscreens.AboutScreen
-import com.example.gymbuddy.scaffoldscreens.ChatBotScreen
-import com.example.gymbuddy.scaffoldscreens.GuestProfileScreen
-import com.example.gymbuddy.scaffoldscreens.MessagesScreen
-import com.example.gymbuddy.scaffoldscreens.MyFriendsScreen
-import com.example.gymbuddy.scaffoldscreens.MyScaffold
-import com.example.gymbuddy.scaffoldscreens.MyWorkoutsScreen
-import com.example.gymbuddy.scaffoldscreens.ProfileScreen
-import com.example.gymbuddy.scaffoldscreens.SearchScreen
-import com.example.gymbuddy.workout.AddWorkoutScreen
-import com.example.gymbuddy.workout.EditWorkoutScreen
+import com.example.gymbuddy.ui.chatbot.ChatBotViewModel
+import com.example.gymbuddy.ui.messages.ChatScreen
+import com.example.gymbuddy.ui.messages.ChatViewModel
+import com.example.gymbuddy.ui.search.UserSearchViewModel
+import com.example.gymbuddy.ui.friends.FriendRequestViewModel
+import com.example.gymbuddy.ui.common.AboutScreen
+import com.example.gymbuddy.ui.chatbot.ChatBotScreen
+import com.example.gymbuddy.ui.profile.GuestProfileScreen
+import com.example.gymbuddy.ui.messages.MessagesScreen
+import com.example.gymbuddy.ui.friends.MyFriendsScreen
+import com.example.gymbuddy.ui.common.MyScaffold
+import com.example.gymbuddy.ui.workout.MyWorkoutsScreen
+import com.example.gymbuddy.ui.profile.ProfileScreen
+import com.example.gymbuddy.ui.search.SearchScreen
+import com.example.gymbuddy.ui.workout.AddWorkoutScreen
+import com.example.gymbuddy.ui.workout.EditWorkoutScreen
 import kotlinx.coroutines.launch
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    signInViewModel: SignInViewModel,
+    signInViewModel: AuthViewModel,
     userManagementViewModel: UserManagementViewModel,
     friendRequestViewModel: FriendRequestViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel,
@@ -57,7 +57,7 @@ fun NavGraph(
 
     val authState by signInViewModel.authState.collectAsState()
 
-    if (authState is SignInViewModel.AuthState.Loading) {
+    if (authState is AuthViewModel.AuthState.Loading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
@@ -66,13 +66,13 @@ fun NavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = if (authState is SignInViewModel.AuthState.Authenticated || authState is SignInViewModel.AuthState.GoogleAuthenticated) "my_app" else "sign_in"
+        startDestination = if (authState is AuthViewModel.AuthState.Authenticated) "my_app" else "sign_in"
     ) {
 
         composable("sign_in") {
 
             SignInScreen(
-                signInViewModel = signInViewModel,
+                authViewModel = signInViewModel,
                 onSignUpClick = { navController.navigate("sign_up") },
                 onContinueSignInScreenClick = { navController.navigate("sign_in_2") },
                 clearUserInformation = { userManagementViewModel.clearForm() },
@@ -90,7 +90,7 @@ fun NavGraph(
 
         composable("sign_in_2") {
             SignInScreen2(
-                signInViewModel = signInViewModel,
+                authViewModel = signInViewModel,
                 onDontHaveAnAccountClick = { navController.navigate("sign_up") },
                 onEditClick = { navController.navigate("sign_in") },
                 navigateToMyApp = { navController.navigate("my_app") },
@@ -102,14 +102,14 @@ fun NavGraph(
             SignUpScreen(
                 onHaveAnAccountClick = { navController.navigate("sign_in") },
                 navigateToRegistration = { navController.navigate("registration") },
-                signInViewModel = signInViewModel,
+                authViewModel = signInViewModel,
             )
         }
 
         composable("registration") {
-            RegistrationNewUserScreen(
+            ProfileSetupScreen(
                 userManagementViewModel = userManagementViewModel,
-                signInViewModel = signInViewModel,
+                authViewModel = signInViewModel,
                 navigateToMyApp = { navController.navigate("my_app") },
             )
         }
@@ -120,7 +120,7 @@ fun NavGraph(
             val chatBotViewModel: ChatBotViewModel = hiltViewModel()
             val scope = rememberCoroutineScope()
 
-            val currentChatName by chatViewModel.currentChatName.collectAsState(initial = "")
+            val currentChatName by chatViewModel.currentChatName.collectAsState()
             val title = currentChatName.ifBlank { "GymBuddy" }
             val innerNavController = rememberNavController()
             // Twoje poprzednie podejście (deklaracja w mainie) nie działało, bo innerNavController
@@ -168,9 +168,6 @@ fun NavGraph(
                             signInViewModel = signInViewModel,
                             userManagementViewModel = userManagementViewModel,
                             onDeleteClick = { navController.navigate("sign_in") },
-                            onDeleteContinueClick = {
-
-                            },
                         )
                     }
 
@@ -221,19 +218,16 @@ fun NavGraph(
                     }
 
                     composable(
-                        route = "chat/{channelId}/{userId}",
+                        route = "chat/{channelId}",
                         arguments = listOf(
                             navArgument("channelId") { type = NavType.StringType },
-                            navArgument("userId") { type = NavType.StringType }
                         )
                     )
                     { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
-                        val userId = backStackEntry.arguments?.getString("userId")
                         ChatScreen(
                             userManagementViewModel = userManagementViewModel,
                             channelID = channelId,
-                            userId = userId,
                             innerNavController = innerNavController,
                             userSearchViewModel = userSearchViewModel,
                             chatViewModel = chatViewModel

@@ -1,8 +1,8 @@
 package com.example.gymbuddy.data.repositoryImpl
 
 import android.net.Uri
-import com.example.gymbuddy.chat.Message
-import com.example.gymbuddy.repository.ChatRepository
+import com.example.gymbuddy.data.model.Message
+import com.example.gymbuddy.data.repository.ChatRepository
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -23,6 +23,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
 class ChatRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore,
     private val storage: FirebaseStorage,

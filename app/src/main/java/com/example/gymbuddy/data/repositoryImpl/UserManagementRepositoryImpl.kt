@@ -1,12 +1,10 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.data.authentication.UserInformation
-import com.example.gymbuddy.repository.UserManagementRepository
+import com.example.gymbuddy.data.model.UserFoundInformation
+import com.example.gymbuddy.ui.profile.UserInformation
+import com.example.gymbuddy.data.repository.UserManagementRepository
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.firestore.snapshots
-import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
@@ -33,20 +31,17 @@ class UserManagementRepositoryImpl : UserManagementRepository {
                 .document(userId)
                 .get()
                 .await()
-            if (document.exists()) {
-                val userInformation = document.toObject(UserInformation::class.java)
-                if (userInformation != null) {
-                    Result.success(userInformation)
-                } else {
-                    Result.failure(Exception("User information is null"))
-                }
-            } else {
-                Result.failure(Exception("User document does not exist"))
+            if (!document.exists()) {
+                return Result.failure(Exception("User document does not exist"))
             }
+            val userInformation = document.toObject(UserInformation::class.java)
+                ?: return Result.failure(Exception("User information is null"))
+            Result.success(userInformation)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
 
     override suspend fun updateUser(newUserData: UserInformation, userId: String): Result<Boolean> {
         return try {
@@ -97,24 +92,17 @@ class UserManagementRepositoryImpl : UserManagementRepository {
     }
 
     // search screen
-    override suspend fun searchUser(username: String): Result<UserFoundInformation> {
+    override suspend fun searchUser(username: String): Result<UserFoundInformation?> {
         return try {
-            val querySnapshot = db.collection("users")
+            val doc = db.collection("users")
                 .whereEqualTo("username", username)
                 .get()
                 .await()
-
-            val document = querySnapshot.documents.firstOrNull() ?: return Result.failure(
-                NoSuchElementException("No user Found: $username"))
-
-            val user = document.toObject(UserFoundInformation::class.java)
-
-            if (user != null) {
-                Result.success(user)
-            } else {
-                Result.failure(IllegalStateException("Error while converting to UserFoundInformation"))
-            }
-        } catch (e: Exception) {
+                .documents
+                .firstOrNull()
+            val user = doc?.toObject(UserFoundInformation::class.java)
+            Result.success(user)  // null oznacza “nic nie znaleziono”
+        } catch(e: Exception) {
             Result.failure(e)
         }
     }
@@ -142,13 +130,6 @@ class UserManagementRepositoryImpl : UserManagementRepository {
             Result.failure(e)
         }
     }
-
-    // zeby usunac usera trzeba:
-    // - usunac z db +
-    // - usunac jego nickaname +
-    // - usunac jego zdjecie profilowe z db +
-    // - usunac wszysktie jego wiadomosci
-    // - usunac wszystkie jego przyjazni i friends requesty todo
 
     // usuwanie z db
     override suspend fun deleteUser(userId: String): Result<Boolean> {

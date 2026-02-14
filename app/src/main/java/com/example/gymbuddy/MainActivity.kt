@@ -10,21 +10,20 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.gymbuddy.data.authentication.SignInViewModel
-import com.example.gymbuddy.data.authentication.UserManagementViewModel
-import com.example.gymbuddy.data.authentication.UserSearchViewModel
+import com.example.gymbuddy.ui.auth.AuthViewModel
+import com.example.gymbuddy.ui.profile.UserManagementViewModel
+import com.example.gymbuddy.ui.search.UserSearchViewModel
 import com.example.gymbuddy.navigation.NavGraph
 import com.example.gymbuddy.ui.theme.GymBuddyTheme
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModelProvider
-import com.example.gymbuddy.chat.ChatViewModel
-import com.example.gymbuddy.data.authentication.CredentialManager
-import com.example.gymbuddy.data.authentication.SignInViewModelFactory
+import com.example.gymbuddy.ui.messages.ChatViewModel
+import com.example.gymbuddy.ui.auth.CredentialManager
+import com.example.gymbuddy.ui.auth.SignInViewModelFactory
 import com.example.gymbuddy.data.repositoryImpl.AuthRepositoryImpl
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -48,7 +47,7 @@ class MainActivity : ComponentActivity() {
                         .statusBarsPadding()
                 ) {
 
-                    val signInViewModel = ViewModelProvider(this, factory).get(SignInViewModel::class.java)
+                    val signInViewModel = ViewModelProvider(this, factory).get(AuthViewModel::class.java)
 
                     val navController = rememberNavController()
                     val userManagementViewModel: UserManagementViewModel = viewModel()

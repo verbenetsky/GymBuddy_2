@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,13 @@ plugins {
     alias(libs.plugins.google.services)
     id("com.google.dagger.hilt.android")
     id("kotlin-kapt")
+}
+
+
+val localProps = Properties().apply {
+    rootProject.file("local.properties")
+        .inputStream()
+        .use { load(it) }
 }
 
 android {
@@ -29,8 +38,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "GENERATIVE_API_KEY", "\"REDACTED_GEMINI_KEY\"") // api chatBot
-        buildConfigField("String", "GENERATIVE_MODEL_NAME", "\"gemini-2.0-flash-exp\"") // model chat bot
+        buildConfigField(
+            "String",
+            "GENERATIVE_API_KEY",
+            "\"${localProps["GENERATIVE_API_KEY"]}\""
+        )
+        buildConfigField(
+            "String",
+            "GENERATIVE_MODEL_NAME",
+            "\"${localProps["GENERATIVE_MODEL_NAME"]}\""
+        )
     }
 
     buildTypes {
@@ -166,6 +183,4 @@ dependencies {
     implementation(libs.generativeai)
 
     implementation(libs.markdown)
-
-
 }

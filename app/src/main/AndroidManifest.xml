@@ -30,7 +30,7 @@
 
     <!-- http is not safe option but for now it is ok -->
     <application
-        android:name=".GymBuddyApplication"
+        android:name=".application.GymBuddyApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -63,7 +63,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".pushnotification.PushNotificationService"
+            android:name=".fcm.PushNotificationService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

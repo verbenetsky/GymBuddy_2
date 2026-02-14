@@ -1,7 +1,7 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.chat.ChatBotMessage
-import com.example.gymbuddy.repository.ChatBotRepository
+import com.example.gymbuddy.data.model.ChatBotMessage
+import com.example.gymbuddy.data.repository.ChatBotRepository
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import com.google.firebase.firestore.FirebaseFirestore
@@ -51,33 +51,37 @@ class ChatBotRepositoryImpl @Inject constructor(
         userId: String,
         question: String,
         history: List<ChatBotMessage>
-    ): Result<ChatBotMessage> = kotlin.runCatching {
+    ): Result<Boolean> {
+        return try {
+            val userMsg = ChatBotMessage(question, "user", System.currentTimeMillis())
+            conversationRef(userId).add(userMsg).await()
 
-        val userMsg = ChatBotMessage(question, "user", System.currentTimeMillis())
-        conversationRef(userId).add(userMsg).await()
-
-        val fullPrompt = buildString {
-            append(prompt)
-            append(question)
-        }
-
-        val chat = generativeModel.startChat(
-            history = history.map {
-                content(it.role) { text(it.message) }
+            val fullPrompt = buildString {
+                append(rule)
+                append(question)
             }
-        )
 
-        val response = chat.sendMessage(fullPrompt)
+            val chat = generativeModel.startChat(
+                history = history.map {
+                    content(it.role) { text(it.message) }
+                }
+            )
 
-        val botMsg = ChatBotMessage(
-            message = convertMarkdownToHtml(response.text.toString()),
-            role = "model",
-            createdAt = System.currentTimeMillis()
-        )
+            val response = chat.sendMessage(fullPrompt)
 
-        conversationRef(userId).add(botMsg).await()
-        botMsg
+            val botMsg = ChatBotMessage(
+                message = convertMarkdownToHtml(response.text.toString()),
+                role = "model",
+                createdAt = System.currentTimeMillis()
+            )
+
+            conversationRef(userId).add(botMsg).await()
+            Result.success(true)
+        } catch (e: Throwable) {
+            Result.failure(e)
+        }
     }
+
 
     override fun observeConversation(userId: String): Flow<List<ChatBotMessage>> = callbackFlow {
         val registration = conversationRef(userId)
@@ -104,8 +108,9 @@ class ChatBotRepositoryImpl @Inject constructor(
         return htmlGenerator.generateHtml()
     }
 
-    private val prompt =
-        "If the user's query does not pertain to gym workouts, nutrition advice, recovery strategies, " +
+    private val rule =
+        "be polite and answer basic question like gretings, how are you etc." +
+                "If the user's query does not pertain to gym workouts, nutrition advice, recovery strategies, " +
                 "or comprehensive fitness planning (including motivation and self-improvement), politely ask for " +
                 "clarification on what specific fitness or nutrition information they are seeking. " +
                 "You are a knowledgeable and experienced gym trainer specializing in workouts, nutrition, recovery, " +

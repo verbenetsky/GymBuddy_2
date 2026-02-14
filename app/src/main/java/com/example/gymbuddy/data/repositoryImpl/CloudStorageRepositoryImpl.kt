@@ -1,8 +1,7 @@
 package com.example.gymbuddy.data.repositoryImpl
 
 import android.net.Uri
-import com.example.gymbuddy.repository.CloudStorageRepository
-import com.google.firebase.auth.ktx.auth
+import com.example.gymbuddy.data.repository.CloudStorageRepository
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
@@ -35,6 +34,8 @@ class CloudStorageRepositoryImpl @Inject constructor() : CloudStorageRepository 
             Result.failure(e)
         }
     }
+
+
 
     override suspend fun deleteImage(imageUri: String): Result<Boolean> {
         return try {

@@ -1,8 +1,8 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.channel.Channel
-import com.example.gymbuddy.data.UserFoundInformation
-import com.example.gymbuddy.repository.ChannelRepository
+import com.example.gymbuddy.data.model.Channel
+import com.example.gymbuddy.data.model.UserFoundInformation
+import com.example.gymbuddy.data.repository.ChannelRepository
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.QuerySnapshot
@@ -17,6 +17,7 @@ import javax.inject.Singleton
 class ChannelRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : ChannelRepository {
+
     override suspend fun findChannel(friendId: String, currentUserId: String): Result<String> {
         return try {
             val snapshot = db.collection("channels")
@@ -135,7 +136,10 @@ class ChannelRepositoryImpl @Inject constructor(
                 sendMerged()
             }
 
-        awaitClose { l1.remove(); l2.remove() }
+        awaitClose {
+            l1.remove()
+            l2.remove()
+        }
     }
 
 

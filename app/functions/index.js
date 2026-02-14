@@ -6,15 +6,17 @@ admin.initializeApp();
 const { CloudTasksClient } = require("@google-cloud/tasks");
 const tasksClient = new CloudTasksClient();
 
-// Konfiguracja – uzupełnij poniższe wartości swoimi danymi:
+// Konfiguracja 
 const project = "gymbuddy2-4e8f6"; // np. "moj-projekt"
-const location = "us-central1";      // region, w którym działają Twoje funkcje (np. us-central1)
-const queue = "WORKOUT-REMINDER";       // nazwa Twojej kolejki w Cloud Tasks
+const location = "us-central1";      // region, w którym działają  funkcje (np. us-central1)
+const queue = "WORKOUT-REMINDER";       // nazwa kolejki w Cloud Tasks
 const serviceAccountEmail = "gymbuddy2-4e8f6@appspot.gserviceaccount.com"; // adres konta serwisowego
 
 // Funkcja wywoływana przy utworzeniu dokumentu w kolekcji "reminders".
 // Jeśli timeOfReminder jest w przyszłości, tworzy zadanie w Cloud Tasks.
 // Jeśli czas już nadszedł, wysyła powiadomienie od razu.
+
+
 exports.createReminderTask = onDocumentCreated("reminders/{reminderId}", async (event) => {
   const reminderData = event.data.data();
   console.log("Reminder data:", reminderData);
@@ -85,6 +87,8 @@ exports.createReminderTask = onDocumentCreated("reminders/{reminderId}", async (
   }
 });
 
+
+
 // Funkcja HTTP-trigger, która zostanie wywołana przez Cloud Tasks w ustalonym czasie.
 // Odbiera dane z zadania i wysyła powiadomienie FCM.
 exports.sendScheduledNotification = onRequest(async (req, res) => {
@@ -100,7 +104,7 @@ exports.sendScheduledNotification = onRequest(async (req, res) => {
     token: fcmToken,
     notification: {
       title: "Workout Reminder",
-      body: message || "It's time for your workout!",
+      body: message || "",
     },
   };
 
@@ -113,3 +117,5 @@ exports.sendScheduledNotification = onRequest(async (req, res) => {
     res.status(500).send("Błąd przy wysyłaniu powiadomienia.");
   }
 });
+
+

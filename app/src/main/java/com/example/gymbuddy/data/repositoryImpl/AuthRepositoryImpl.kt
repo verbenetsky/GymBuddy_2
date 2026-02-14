@@ -1,8 +1,6 @@
 package com.example.gymbuddy.data.repositoryImpl
 
-import com.example.gymbuddy.repository.AuthRepository
-import com.google.firebase.auth.AuthResult
-import com.google.firebase.auth.GoogleAuthCredential
+import com.example.gymbuddy.data.repository.AuthRepository
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
