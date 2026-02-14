@@ -93,21 +93,6 @@ Additionally, **Cloud Functions** can react to Firestore events and either send 
 
 A full version of the **Bachelor’s thesis** describing the project (requirements, architecture, implementation details, and evaluation) is available in the repository **Releases** section as an attached PDF.
 
-
----
-
-## 🚀 Getting Started (high level)
-
-1. Configure a Firebase project:
-   - Enable Authentication providers (Email/Password + Google)
-   - Create Firestore database
-   - Configure Storage
-   - Enable FCM
-2. Add `google-services.json` to the Android module.
-3. (Optional) Backend:
-   - Provide Firebase Admin service account JSON for Ktor / server environment
-   - Configure endpoint URLs used by the Android app
-
 ---
 
 ## 🖥️ Backend / Server
