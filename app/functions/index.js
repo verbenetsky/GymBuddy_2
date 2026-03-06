@@ -7,8 +7,8 @@ const { CloudTasksClient } = require("@google-cloud/tasks");
 const tasksClient = new CloudTasksClient();
 
 // Konfiguracja 
-const project = "gymbuddy2-4e8f6"; // np. "moj-projekt"
-const location = "us-central1";      // region, w którym działają  funkcje (np. us-central1)
+const project = "gymbuddy2-4e8f6";
+const location = "us-central1";
 const queue = "WORKOUT-REMINDER";       // nazwa kolejki w Cloud Tasks
 const serviceAccountEmail = "gymbuddy2-4e8f6@appspot.gserviceaccount.com"; // adres konta serwisowego
 
@@ -67,7 +67,6 @@ exports.createReminderTask = onDocumentCreated("reminders/{reminderId}", async (
         url,
         headers: { "Content-Type": "application/json" },
         body: Buffer.from(JSON.stringify(taskPayload)).toString("base64"),
-        // Opcjonalnie – zabezpieczenie wywołania endpointu za pomocą OIDC
         oidcToken: {
           serviceAccountEmail,
         },
