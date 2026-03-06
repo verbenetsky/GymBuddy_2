@@ -114,9 +114,7 @@ fun SearchScreen(
                                 Toast.LENGTH_SHORT
                             ).show()
                         },
-                        onNoOneFound = {
-                            Toast.makeText(context, "No user found", Toast.LENGTH_SHORT).show()
-                        }
+                        onNoOneFound = {}
                     )
                 }) {
                     Icon(
